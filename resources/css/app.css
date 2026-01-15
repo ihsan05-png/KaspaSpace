@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    * {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    *:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    
+    button:focus,
+    a:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+}
+
+@layer utilities {
+    @keyframes slide-down {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .animate-slide-down {
+        animation: slide-down 0.4s ease-out;
+    }
+}
