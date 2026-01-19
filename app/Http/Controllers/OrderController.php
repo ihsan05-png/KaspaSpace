@@ -148,4 +148,16 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check order status (API endpoint)
+     */
+    public function checkStatus(Order $order)
+    {
+        return response()->json([
+            'payment_status' => $order->payment_status,
+            'status' => $order->status,
+            'paid_at' => $order->paid_at,
+        ]);
+    }
 }

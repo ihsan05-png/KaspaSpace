@@ -84,29 +84,46 @@ export default function Payment({ order }) {
         }
     };
 
-    // Check payment status periodically
+    // Check payment status periodically for both payment methods
     useEffect(() => {
-        if (order.payment_method === 'midtrans' && paymentStatus === 'unpaid') {
+        if (paymentStatus === 'unpaid' && orderStatus !== 'cancelled') {
             const interval = setInterval(() => {
                 checkPaymentStatus();
             }, 5000); // Check every 5 seconds
 
             return () => clearInterval(interval);
         }
-    }, [paymentStatus]);
+    }, [paymentStatus, orderStatus]);
 
     const checkPaymentStatus = async () => {
         try {
-            const response = await axios.get(`/midtrans/check-status/${order.id}`);
-            if (response.data.payment_status !== paymentStatus) {
-                setPaymentStatus(response.data.payment_status);
-                setOrderStatus(response.data.status);
-                
-                // Reload page if payment is successful
-                if (response.data.payment_status === 'paid') {
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
+            // For midtrans, use midtrans endpoint
+            if (order.payment_method === 'midtrans') {
+                const response = await axios.get(`/midtrans/check-status/${order.id}`);
+                if (response.data.payment_status !== paymentStatus) {
+                    setPaymentStatus(response.data.payment_status);
+                    setOrderStatus(response.data.status);
+                    
+                    // Redirect to success page if payment is successful
+                    if (response.data.payment_status === 'paid') {
+                        setTimeout(() => {
+                            window.location.href = `/checkout/success/${order.id}`;
+                        }, 1000);
+                    }
+                }
+            } else {
+                // For cash, check order status directly from database
+                const response = await axios.get(`/api/orders/${order.id}/status`);
+                if (response.data.payment_status !== paymentStatus) {
+                    setPaymentStatus(response.data.payment_status);
+                    setOrderStatus(response.data.status);
+                    
+                    // Redirect to success page if payment is successful
+                    if (response.data.payment_status === 'paid') {
+                        setTimeout(() => {
+                            window.location.href = `/checkout/success/${order.id}`;
+                        }, 1000);
+                    }
                 }
             }
         } catch (error) {
@@ -446,10 +463,73 @@ export default function Payment({ order }) {
                 )}
 
                 {order.payment_method === 'cash' && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-                        <p className="text-blue-800 text-center">
-                            💰 Silakan siapkan uang tunai sebesar <span className="font-bold">Rp{Number(order.total).toLocaleString('id-ID')}</span> saat pengambilan pesanan.
-                        </p>
+                    <div className="space-y-4">
+                        {paymentStatus === 'paid' ? (
+                            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                                <div className="flex items-center justify-center gap-3">
+                                    <CheckCircle className="w-8 h-8 text-green-600" />
+                                    <div className="text-center">
+                                        <p className="text-green-900 font-bold text-lg">Pembayaran Lunas!</p>
+                                        <p className="text-green-700 text-sm">Pesanan Anda sudah dibayar</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : paymentStatus === 'unpaid' && orderStatus !== 'cancelled' ? (
+                            <>
+                                {!isExpired ? (
+                                    <>
+                                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-8 px-6 rounded-xl shadow-lg text-center">
+                                            <h3 className="text-2xl font-bold mb-3">💰 Pembayaran Tunai</h3>
+                                            <p className="text-blue-100 mb-4">
+                                                Silakan siapkan uang tunai sebesar:
+                                            </p>
+                                            <div className="bg-white/20 backdrop-blur rounded-lg py-4 px-6 inline-block">
+                                                <p className="text-3xl font-bold">
+                                                    Rp{Number(order.total).toLocaleString('id-ID')}
+                                                </p>
+                                            </div>
+                                            <p className="text-blue-100 text-sm mt-4">
+                                                Bayar saat pengambilan pesanan
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowCancelModal(true)}
+                                            disabled={isCancelling}
+                                            className="w-full bg-white border-2 border-red-500 text-red-600 py-3 rounded-xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isCancelling ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    Membatalkan...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="w-5 h-5" />
+                                                    Batalkan Pesanan
+                                                </>
+                                            )}
+                                        </button>
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                            <p className="text-blue-800 text-sm text-center">
+                                                💡 Pesanan akan dikonfirmasi setelah pembayaran tunai diterima
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
+                                        <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                                        <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <a
+                                            href="/"
+                                            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                                        >
+                                            Buat Pesanan Baru
+                                        </a>
+                                    </div>
+                                )}
+                            </>
+                        ) : null}
                     </div>
                 )}
 

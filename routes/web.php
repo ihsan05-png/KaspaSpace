@@ -34,6 +34,7 @@ Route::middleware(['redirect.admin'])->group(function () {
     Route::get('/', function () {
         $latestMedia = \App\Models\News::where('is_published', true)
             ->orderBy('published_at', 'desc')
+            ->select(['id', 'title', 'slug', 'excerpt', 'image', 'published_at', 'type'])
             ->limit(4)
             ->get();
             
@@ -46,12 +47,14 @@ Route::middleware(['redirect.admin'])->group(function () {
         $latestBlogs = \App\Models\News::where('is_published', true)
             ->where('type', 'blogs')
             ->orderBy('published_at', 'desc')
+            ->select(['id', 'title', 'slug', 'excerpt', 'image', 'published_at', 'type'])
             ->limit(8)
             ->get();
             
         $latestNews = \App\Models\News::where('is_published', true)
             ->where('type', 'news')
             ->orderBy('published_at', 'desc')
+            ->select(['id', 'title', 'slug', 'excerpt', 'image', 'published_at', 'type'])
             ->limit(8)
             ->get();
             
@@ -78,62 +81,15 @@ Route::middleware(['redirect.admin'])->group(function () {
     })->name('ai.app');
 
     Route::get('/workspace-section', function () {
-    $products = Product::with(['category', 'variants']) // PENTING: Load variants
-        ->where('is_active', 1)
-        ->orderBy('sort_order')
-        ->get()
-        ->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'title' => $product->title,
-                'slug' => $product->slug,
-                'subtitle' => $product->subtitle,
-                'description' => $product->description,
-                'promo_label' => $product->promo_label,
-                'base_price' => (string) $product->base_price,
-                'images' => is_array($product->images) ? $product->images : [],
-                'is_featured' => $product->is_featured,
-                'category' => $product->category ? [
-                    'id' => $product->category->id,
-                    'name' => $product->category->name,
-                    'slug' => $product->category->slug,
-                ] : null,
-                // TAMBAHKAN INI - Variants
-                'variants' => $product->variants->map(function ($variant) {
-                    return [
-                        'id' => $variant->id,
-                        'name' => $variant->name,
-                        'description' => $variant->description ?? null,
-                        'sku' => $variant->sku,
-                        'price' => (float) $variant->price,
-                        'compare_price' => $variant->compare_price ? (float) $variant->compare_price : null,
-                        'is_active' => (bool) $variant->is_active,
-                        'manage_stock' => (bool) $variant->manage_stock,
-                        'stock_quantity' => (int) $variant->stock_quantity,
-                        'sort_order' => (int) $variant->sort_order,
-                        'attributes' => $variant->attributes,
-                        'image' => $variant->image,
-                    ];
-                })->toArray(),
-                // TAMBAHKAN INI - Custom Options
-                'custom_options' => is_array($product->custom_options) 
-                    ? array_map(function($option) {
-                        return [
-                            'name' => $option['question'] ?? $option['name'] ?? '',
-                            'label' => $option['question'] ?? $option['label'] ?? $option['name'] ?? '',
-                            'type' => $option['type'] ?? 'text',
-                            'required' => $option['required'] ?? false,
-                            'placeholder' => $option['placeholder'] ?? null,
-                            'options' => $option['options'] ?? null,
-                        ];
-                    }, $product->custom_options)
-                    : [],
-            ];
-        })->values()->toArray();
+        $products = Product::with(['category:id,name,slug', 'variants'])
+            ->where('is_active', 1)
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id', 'sort_order')
+            ->orderBy('sort_order')
+            ->get();
     
-    return Inertia::render('WorkSpaceSection', [
-        'products' => $products
-    ]);
+        return Inertia::render('WorkSpaceSection', [
+            'products' => $products
+        ]);
     })->name('workspace.section');
 
     // Cart routes
@@ -143,112 +99,42 @@ Route::middleware(['redirect.admin'])->group(function () {
     Route::post('/cart/update-quantity', [CartController::class, 'updateQuantity'])->name('cart.updateQuantity');
 
     Route::get('/jasa-profesional-section', function () {
-        $category = \App\Models\Category::where('slug', 'jasa-profesional')->first();
+        $category = \App\Models\Category::where('slug', 'jasa-profesional')
+            ->select('id', 'name', 'slug')
+            ->first();
         
-        $products = Product::with(['category', 'variants'])
+        $products = Product::with(['category:id,name,slug', 'variants'])
             ->when($category, function ($query) use ($category) {
                 return $query->where('category_id', $category->id);
             })
             ->where('is_active', 1)
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order')
             ->orderBy('sort_order')
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'slug' => $product->slug,
-                    'subtitle' => $product->subtitle,
-                    'description' => $product->description,
-                    'promo_label' => $product->promo_label,
-                    'base_price' => (string) $product->base_price,
-                    'images' => is_array($product->images) ? $product->images : [],
-                    'is_featured' => $product->is_featured,
-                    'category' => $product->category ? [
-                        'id' => $product->category->id,
-                        'name' => $product->category->name,
-                        'slug' => $product->category->slug,
-                    ] : null,
-                    'variants' => $product->variants->map(function ($variant) {
-                        return [
-                            'id' => $variant->id,
-                            'name' => $variant->name,
-                            'description' => $variant->description ?? null,
-                            'sku' => $variant->sku,
-                            'price' => (float) $variant->price,
-                            'compare_price' => $variant->compare_price ? (float) $variant->compare_price : null,
-                            'is_active' => (bool) $variant->is_active,
-                            'manage_stock' => (bool) $variant->manage_stock,
-                            'stock_quantity' => (int) $variant->stock_quantity,
-                            'sort_order' => (int) $variant->sort_order,
-                            'attributes' => $variant->attributes,
-                            'image' => $variant->image,
-                        ];
-                    })->toArray(),
-                ];
-            });
+            ->get();
 
         return Inertia::render('JasaProfesionalSection', [
             'products' => $products,
-            'currentCategory' => $category ? [
-                'id' => $category->id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-            ] : null,
+            'currentCategory' => $category,
         ]);
     })->name('jasa.profesional.section');
 
     Route::get('/food-beverage', function () {
-        $category = \App\Models\Category::where('slug', 'food-beverage')->first();
+        $category = \App\Models\Category::where('slug', 'food-beverage')
+            ->select('id', 'name', 'slug')
+            ->first();
         
-        $products = Product::with(['category', 'variants'])
+        $products = Product::with(['category:id,name,slug', 'variants'])
             ->when($category, function ($query) use ($category) {
                 return $query->where('category_id', $category->id);
             })
             ->where('is_active', 1)
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order')
             ->orderBy('sort_order')
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'slug' => $product->slug,
-                    'subtitle' => $product->subtitle,
-                    'description' => $product->description,
-                    'promo_label' => $product->promo_label,
-                    'base_price' => (string) $product->base_price,
-                    'images' => is_array($product->images) ? $product->images : [],
-                    'is_featured' => $product->is_featured,
-                    'category' => $product->category ? [
-                        'id' => $product->category->id,
-                        'name' => $product->category->name,
-                        'slug' => $product->category->slug,
-                    ] : null,
-                    'variants' => $product->variants->map(function ($variant) {
-                        return [
-                            'id' => $variant->id,
-                            'name' => $variant->name,
-                            'description' => $variant->description ?? null,
-                            'sku' => $variant->sku,
-                            'price' => (float) $variant->price,
-                            'compare_price' => $variant->compare_price ? (float) $variant->compare_price : null,
-                            'is_active' => (bool) $variant->is_active,
-                            'manage_stock' => (bool) $variant->manage_stock,
-                            'stock_quantity' => (int) $variant->stock_quantity,
-                            'sort_order' => (int) $variant->sort_order,
-                            'attributes' => $variant->attributes,
-                            'image' => $variant->image,
-                        ];
-                    })->toArray(),
-                ];
-            });
+            ->get();
 
         return Inertia::render('FoodBeverage', [
             'products' => $products,
-            'currentCategory' => $category ? [
-                'id' => $category->id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-            ] : null,
+            'currentCategory' => $category,
         ]);
     })->name('food.beverage');
 
@@ -312,6 +198,9 @@ Route::middleware('auth')->group(function () {
     // User Dashboard
     Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
     Route::post('/orders/{order}/cancel', [UserDashboardController::class, 'cancelOrder'])->name('orders.cancel');
+    
+    // API to check order status
+    Route::get('/api/orders/{order}/status', [OrderController::class, 'checkStatus'])->name('api.orders.status');
 });
 
 /*
@@ -347,6 +236,12 @@ Route::get('/check-auth', function () {
         'user' => Auth::user() ? Auth::user()->only(['name', 'email']) : null
     ]);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Admin Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     

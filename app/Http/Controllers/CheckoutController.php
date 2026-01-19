@@ -133,15 +133,8 @@ class CheckoutController extends Controller
         // Hapus cart setelah order berhasil dibuat
         session()->forget('cart');
 
-        // Jika pembayaran menggunakan Midtrans, redirect ke payment gateway
-        if ($validated['payment_method'] === 'midtrans') {
-            // TODO: Implementasi Midtrans Snap
-            // Untuk sementara redirect ke halaman payment dengan order info
-            return redirect()->route('order.payment', ['order' => $order->id]);
-        }
-        
-        // Jika cash, redirect langsung ke halaman sukses
-        return redirect()->route('checkout.success', ['order' => $order->id]);
+        // Redirect ke halaman payment untuk semua metode pembayaran
+        return redirect()->route('order.payment', ['order' => $order->id]);
 
     } catch (\Exception $e) {
         DB::rollBack();

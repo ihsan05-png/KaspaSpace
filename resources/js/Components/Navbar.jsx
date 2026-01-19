@@ -102,6 +102,7 @@ const Navbar = () => {
               <Link 
                 href="/" 
                 className="text-gray-900 hover:text-blue-500 px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:outline-none"
+ 
               >
                 Home
               </Link>
@@ -122,24 +123,28 @@ const Navbar = () => {
                       <Link 
                         href={route('workspace', { category: 'coworking-space' })} 
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-500 transition-colors duration-200"
+ 
                       >
                         Coworking Space
                       </Link>
                       <Link 
                         href={route('jasa.profesional.section')} 
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-500 transition-colors duration-200"
+ 
                       >
                         Dukungan Bisnis
                       </Link>
                       <Link 
                         href={route('workspace', { category: 'open-library' })} 
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-500 transition-colors duration-200"
+ 
                       >
                         E-Library
                       </Link>
                       <Link 
                         href={route('food.beverage')} 
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-500 transition-colors duration-200"
+ 
                       >
                         Food & Beverage
                       </Link>
@@ -151,12 +156,14 @@ const Navbar = () => {
               <Link 
                 href={route('media')} 
                 className="text-gray-900 hover:text-blue-500 px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:outline-none"
+ 
               >
                 Media
               </Link>
               <Link 
                 href={route('contact')} 
                 className="text-gray-900 hover:text-blue-500 px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:outline-none"
+ 
               >
                 Contact
               </Link>
@@ -167,8 +174,8 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             {/* Pending Order Notification */}
             {pendingOrder && (
-              <a
-                href={`/order/${pendingOrder.id}/payment`}
+              <Link
+                href={`/orders/${pendingOrder.id}/payment`}
                 className="relative text-gray-500 hover:text-blue-600 transition-colors duration-200 focus:outline-none focus-visible:outline-none"
                 title="Pesanan Pending"
               >
@@ -176,7 +183,7 @@ const Navbar = () => {
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
                   1
                 </span>
-              </a>
+              </Link>
             )}
 
             {/* Shopping Cart */}
@@ -217,6 +224,7 @@ const Navbar = () => {
                     <Link 
                       href={route('user.dashboard')}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200"
+ 
                     >
                       <LayoutDashboard className="h-4 w-4 mr-3" />
                       Dashboard
@@ -225,6 +233,7 @@ const Navbar = () => {
                     <Link 
                       href={route('profile.edit')}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200"
+ 
                     >
                       <User className="h-4 w-4 mr-3" />
                       Profil Saya
@@ -249,12 +258,14 @@ const Navbar = () => {
                 <Link 
                   href={route('login')}
                   className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50 transition-colors duration-200"
+ 
                 >
                   Login
                 </Link>
                 <Link 
                   href={route('register')}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+ 
                 >
                   Register
                 </Link>
@@ -284,6 +295,7 @@ const Navbar = () => {
               <Link 
                 href="/" 
                 className="text-gray-900 hover:text-blue-500 block px-3 py-2 text-base font-medium transition-colors duration-200"
+ 
               >
                 Home
               </Link>
@@ -304,24 +316,28 @@ const Navbar = () => {
                   <Link 
                     href={route('workspace', { category: 'coworking-space' })} 
                     className="text-gray-600 hover:text-blue-500 block px-3 py-2 text-sm transition-colors duration-200"
+ 
                   >
                     Coworking Space
                   </Link>
                   <Link 
                     href={route('jasa.profesional.section')} 
                     className="text-gray-600 hover:text-blue-500 block px-3 py-2 text-sm transition-colors duration-200"
+ 
                   >
                     Dukungan Bisnis
                   </Link>
                   <Link 
                     href={route('workspace', { category: 'open-library' })} 
                     className="text-gray-600 hover:text-blue-500 block px-3 py-2 text-sm transition-colors duration-200"
+ 
                   >
                     E-Library
                   </Link>
                   <Link 
                     href={route('food.beverage')} 
                     className="text-gray-600 hover:text-blue-500 block px-3 py-2 text-sm transition-colors duration-200"
+ 
                   >
                     Food & Beverage
                   </Link>
@@ -332,12 +348,14 @@ const Navbar = () => {
               <Link 
                 href={route('media')} 
                 className="text-gray-900 hover:text-blue-500 block px-3 py-2 text-base font-medium transition-colors duration-200"
+ 
               >
                 Media
               </Link>
               <Link 
                 href={route('contact')} 
                 className="text-gray-900 hover:text-blue-500 block px-3 py-2 text-base font-medium transition-colors duration-200"
+ 
               >
                 Contact
               </Link>
@@ -347,15 +365,15 @@ const Navbar = () => {
                 <div className="flex items-center justify-end gap-4 px-3 py-2">
                   {/* Pending Order for Mobile */}
                   {pendingOrder && (
-                    <a
-                      href={`/order/${pendingOrder.id}/payment`}
+                    <Link
+                      href={`/orders/${pendingOrder.id}/payment`}
                       className="relative text-gray-500 hover:text-blue-600"
                     >
                       <Receipt className="h-5 w-5" />
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
                         1
                       </span>
-                    </a>
+                    </Link>
                   )}
                   
                   <Link
@@ -379,6 +397,7 @@ const Navbar = () => {
                     <Link 
                       href={route('profile.edit')}
                       className="block text-left text-sm text-blue-600 hover:text-blue-700"
+ 
                     >
                       Profil
                     </Link>
@@ -396,12 +415,14 @@ const Navbar = () => {
                     <Link 
                       href={route('login')}
                       className="block text-center w-full border border-blue-200 text-blue-600 px-6 py-2 rounded-full text-sm font-medium hover:bg-blue-50 transition-colors duration-200"
+ 
                     >
                       Login
                     </Link>
                     <Link 
                       href={route('register')}
                       className="block text-center w-full bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+ 
                     >
                       Register
                     </Link>

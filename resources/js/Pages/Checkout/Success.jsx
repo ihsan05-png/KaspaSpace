@@ -1,6 +1,81 @@
+import { useState, useEffect } from 'react';
 import { CheckCircle, Package, User, Mail, Phone, Calendar, FileText } from 'lucide-react';
+import axios from 'axios';
 
 export default function CheckoutSuccess({ order }) {
+    const [currentOrder, setCurrentOrder] = useState(order);
+
+    // Auto-sync status every 5 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            checkOrderStatus();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [order.id]);
+
+    const checkOrderStatus = async () => {
+        try {
+            const response = await axios.get(`/api/orders/${order.id}/status`);
+            if (response.data.payment_status !== currentOrder.payment_status) {
+                setCurrentOrder({
+                    ...currentOrder,
+                    payment_status: response.data.payment_status,
+                    status: response.data.status,
+                    paid_at: response.data.paid_at
+                });
+            }
+        } catch (error) {
+            console.error('Error checking order status:', error);
+        }
+    };
+
+    const getStatusBadge = () => {
+        if (currentOrder.payment_status === 'paid') {
+            return (
+                <span className="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                    Lunas
+                </span>
+            );
+        } else if (currentOrder.payment_status === 'cancelled') {
+            return (
+                <span className="inline-block px-4 py-2 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+                    Dibatalkan
+                </span>
+            );
+        } else {
+            return (
+                <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
+                    Menunggu
+                </span>
+            );
+        }
+    };
+
+    const getHeaderContent = () => {
+        if (currentOrder.payment_status === 'paid') {
+            return {
+                icon: <CheckCircle className="w-12 h-12 text-green-600" />,
+                title: 'Pembayaran Lunas!',
+                message: 'Terima kasih! Pembayaran Anda telah kami terima dan pesanan akan segera diproses.'
+            };
+        } else if (currentOrder.payment_status === 'cancelled') {
+            return {
+                icon: <CheckCircle className="w-12 h-12 text-red-600" />,
+                title: 'Pesanan Dibatalkan',
+                message: 'Pesanan ini telah dibatalkan. Silakan buat pesanan baru jika masih membutuhkan.'
+            };
+        } else {
+            return {
+                icon: <CheckCircle className="w-12 h-12 text-green-600" />,
+                title: 'Pesanan Berhasil Dibuat!',
+                message: 'Terima kasih telah memesan. Kami akan segera memproses pesanan Anda.'
+            };
+        }
+    };
+
+    const headerContent = getHeaderContent();
+
     return (
         <div className="min-h-screen bg-gray-50 py-12">
             <div className="max-w-3xl mx-auto px-4">
@@ -8,13 +83,13 @@ export default function CheckoutSuccess({ order }) {
                 <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
                     <div className="text-center mb-8">
                         <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-                            <CheckCircle className="w-12 h-12 text-green-600" />
+                            {headerContent.icon}
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                            Pesanan Berhasil Dibuat! 🎉
+                            {headerContent.title}
                         </h1>
                         <p className="text-gray-600">
-                            Terima kasih telah memesan. Kami akan segera memproses pesanan Anda.
+                            {headerContent.message}
                         </p>
                     </div>
 
@@ -24,14 +99,12 @@ export default function CheckoutSuccess({ order }) {
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Nomor Pesanan</p>
                                 <p className="text-2xl font-bold text-blue-900">
-                                    {order.order_number}
+                                    {currentOrder.order_number}
                                 </p>
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-600 mb-1">Status</p>
-                                <span className="inline-block px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
-                                    {order.status === 'pending' ? 'Menunggu' : order.status}
-                                </span>
+                                {getStatusBadge()}
                             </div>
                         </div>
                     </div>
@@ -44,29 +117,29 @@ export default function CheckoutSuccess({ order }) {
                         <div className="space-y-3">
                             <div className="flex items-center gap-3 text-gray-700">
                                 <User className="w-5 h-5 text-gray-400" />
-                                <span>{order.customer_name}</span>
+                                <span>{currentOrder.customer_name}</span>
                             </div>
                             <div className="flex items-center gap-3 text-gray-700">
                                 <Mail className="w-5 h-5 text-gray-400" />
-                                <span>{order.customer_email}</span>
+                                <span>{currentOrder.customer_email}</span>
                             </div>
                             <div className="flex items-center gap-3 text-gray-700">
                                 <Phone className="w-5 h-5 text-gray-400" />
-                                <span>{order.customer_phone}</span>
+                                <span>{currentOrder.customer_phone}</span>
                             </div>
                             <div className="flex items-center gap-3 text-gray-700">
                                 <Calendar className="w-5 h-5 text-gray-400" />
-                                <span>{new Date(order.created_at).toLocaleString('id-ID', {
+                                <span>{new Date(currentOrder.created_at).toLocaleString('id-ID', {
                                     dateStyle: 'long',
                                     timeStyle: 'short'
                                 })}</span>
                             </div>
-                            {order.notes && (
+                            {currentOrder.notes && (
                                 <div className="flex items-start gap-3 text-gray-700 bg-gray-50 rounded-lg p-3">
                                     <FileText className="w-5 h-5 text-gray-400 mt-0.5" />
                                     <div>
                                         <p className="text-sm font-semibold text-gray-800 mb-1">Catatan:</p>
-                                        <p className="text-sm">{order.notes}</p>
+                                        <p className="text-sm">{currentOrder.notes}</p>
                                     </div>
                                 </div>
                             )}
@@ -80,7 +153,7 @@ export default function CheckoutSuccess({ order }) {
                             Detail Pesanan
                         </h2>
                         <div className="space-y-4">
-                            {order.items && order.items.map((item) => (
+                            {currentOrder.items && currentOrder.items.map((item) => (
                                 <div key={item.id} className="flex justify-between items-start p-4 bg-gray-50 rounded-lg">
                                     <div className="flex-1">
                                         <h3 className="font-semibold text-gray-900">
@@ -118,13 +191,13 @@ export default function CheckoutSuccess({ order }) {
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-600">Subtotal</span>
                                 <span className="font-semibold text-gray-900">
-                                    Rp{Number(order.subtotal).toLocaleString('id-ID')}
+                                    Rp{Number(currentOrder.subtotal).toLocaleString('id-ID')}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center text-xl font-bold">
                                 <span className="text-gray-900">Total</span>
                                 <span className="text-blue-600">
-                                    Rp{Number(order.total).toLocaleString('id-ID')}
+                                    Rp{Number(currentOrder.total).toLocaleString('id-ID')}
                                 </span>
                             </div>
                         </div>
@@ -153,7 +226,7 @@ export default function CheckoutSuccess({ order }) {
                         Langkah Selanjutnya
                     </h3>
                     <ul className="space-y-2 text-sm text-gray-700">
-                        <li>✓ Kami telah mengirim email konfirmasi ke {order.customer_email}</li>
+                        <li>✓ Kami telah mengirim email konfirmasi ke {currentOrder.customer_email}</li>
                         <li>✓ Tim kami akan segera menghubungi Anda untuk konfirmasi pembayaran</li>
                         <li>✓ Simpan nomor pesanan Anda untuk referensi</li>
                     </ul>

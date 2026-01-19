@@ -33,9 +33,9 @@ Ikuti langkah-langkah berikut untuk menjalankan project secara lokal atau dalam 
 
 ### 1. Clone repositori  
 ```bash
-git clone https://github.com/Isnannkusuma/Kaspa-Space.git
-cd Kaspa-Space
-````
+git clone https://github.com/ihsan05-png/KaspaSpace.git
+cd KaspaSpace
+```
 
 ### 2. Install dependensi PHP dengan Composer
 
@@ -74,7 +74,7 @@ php artisan migrate
 # Jika ada seed data tersedia:
 php artisan db:seed
 
-FIle database bernama kaspa_space(1)
+# File database tersedia: kaspa_space(1).sql
 ```
 
 ### 6. Install dependensi Front-end & Build aset
@@ -161,22 +161,29 @@ Project ini dilisensikan di bawah lisensi MIT. (Sesuai file `LICENSE` atau sesua
 Semoga README ini membantu pengembang selanjutnya untuk cepat adaptasi dan melanjutkan pengembangan.
 Jika Anda punya tambahan spesifik (contoh: modul khusus, service eksternal, webhook, dsb), saya bisa bantu lengkapi juga.
 
-```
-
 ---
+ 
+## 📌 Status Pengembangan
 
-Kekurangan dari web ini adalah:
-1. Masik terdapat bug dalam memilih metode pembayaran
-2. Ketika user sudah login dan ingin checkout barang, masih harus input identitas lagi(harusnya sudah aoutomatis terisi).
-3. Ketika user sudah login Navbar nya belum berganti.
-4. Route untuk admin masih memakai /admin/adminlayout. (harusnya dipisan dengan user, dan sekarang user masih bisa akses dashboard admin).
-5. Di dalam dashboard admin masih banyak bug seperti: statistik dalam pesanan belum terkalkulasi, belum ada action untuk verifikasi status pesanan, dan masih belum bisa membuat non kategori.
-6. Halaman product seperti Coworking space belum ter filter sesuai kategori, kemudian halaman lainya masih belum ada. bisa di kloning dari halaman product coworking space untuk halaman product lainya.
-7. tabel okupansi manual masih belum terhapus.
-8. gambar gambar masih banyak yang belum ter input.
-9. masih banyak tombol yang belum mengarah ke route yang benar.
-10. tambahkan footer.
+### Kekurangan yang Masih Ada:
+1. Di dalam dashboard admin masih banyak bug seperti: statistik dalam pesanan belum terkalkulasi, belum ada action untuk verifikasi status pesanan, dan masih belum bisa membuat non kategori.
+2. Halaman product seperti Coworking space belum ter filter sesuai kategori, kemudian halaman lainya masih belum ada. bisa di kloning dari halaman product coworking space untuk halaman product lainya.
+3. Tabel okupansi manual masih belum terhapus.
+4. Gambar-gambar masih banyak yang belum ter input.
+5. Masih banyak tombol yang belum mengarah ke route yang benar.
 
-Harapan pengembangan selanjutnya:
-1. Menambahkan Midtrans untuk metode pembayaran
-```
+### Fitur yang Sudah Ditambahkan:
+✅ Sistem diskon dengan pemilihan produk spesifik  
+✅ Sistem diskon dengan pemilihan user spesifik (visibility control)  
+✅ Integrasi Midtrans untuk pembayaran online  
+✅ Auto-fill form checkout untuk user yang sudah login  
+✅ Navbar dinamis dengan dropdown user menu  
+✅ Route admin terpisah dengan middleware  
+✅ User management (CRUD) di admin panel  
+✅ User dashboard dengan riwayat pesanan dan diskon  
+✅ Pembatalan otomatis pesanan >24 jam  
+✅ Status cancelled untuk pesanan  
+✅ Footer lengkap dengan informasi kontak  
+✅ Profil user dengan edit nama, email, phone, dan password  
+
+````

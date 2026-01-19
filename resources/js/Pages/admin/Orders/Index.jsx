@@ -14,7 +14,8 @@ import {
     User,
     CreditCard,
     DollarSign,
-    RefreshCw
+    RefreshCw,
+    AlertTriangle
 } from 'lucide-react';
 
 export default function AdminOrdersIndex({ orders = [] }) {
@@ -30,6 +31,8 @@ export default function AdminOrdersIndex({ orders = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmData, setConfirmData] = useState({ orderId: null, newStatus: null });
 
     // Auto-sync Midtrans orders every 10 seconds
     useEffect(() => {
@@ -88,6 +91,38 @@ export default function AdminOrdersIndex({ orders = [] }) {
         } catch (error) {
             console.error('Manual sync error:', error);
             setIsSyncing(false);
+        }
+    };
+
+    const handleStatusChange = async (orderId, newStatus) => {
+        setConfirmData({ orderId, newStatus });
+        setShowConfirmModal(true);
+    };
+
+    const confirmStatusChange = async () => {
+        const { orderId, newStatus } = confirmData;
+        setIsProcessing(true);
+        
+        try {
+            await router.patch(`/admin/orders/${orderId}/status`, {
+                payment_status: newStatus
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setShowConfirmModal(false);
+                    setIsProcessing(false);
+                },
+                onError: (errors) => {
+                    console.error('Error updating status:', errors);
+                    alert('Gagal mengubah status pesanan');
+                    setIsProcessing(false);
+                }
+            });
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan saat mengubah status');
+            setIsProcessing(false);
         }
     };
 
@@ -188,7 +223,7 @@ export default function AdminOrdersIndex({ orders = [] }) {
         const methods = {
             qris: { text: 'QRIS', color: 'bg-purple-100 text-purple-700' },
             bank_transfer: { text: 'Transfer Bank', color: 'bg-blue-100 text-blue-700' },
-            cash: { text: 'Tunai', color: 'bg-green-100 text-green-700' },
+            cash: { text: 'Tunai', color: 'bg-orange-100 text-orange-700' },
             midtrans: { text: 'Midtrans', color: 'bg-indigo-100 text-indigo-700' }
         };
         const methodInfo = methods[method] || { text: method, color: 'bg-gray-100 text-gray-700' };
@@ -214,10 +249,11 @@ export default function AdminOrdersIndex({ orders = [] }) {
 
     const stats = {
         pending: orders.filter(o => o.payment_status === 'pending' || o.payment_status === 'unpaid').length,
-        paid: orders.filter(o => o.payment_status === 'paid' && o.payment_method === 'cash').length, // Only cash payments need verification
+        paid: orders.filter(o => o.payment_status === 'unpaid' && o.payment_method === 'cash').length, // Only unpaid cash payments need verification
         verified: orders.filter(o => 
             o.payment_status === 'verified' || 
-            (o.payment_status === 'paid' && o.payment_method === 'midtrans') // Midtrans paid = auto verified
+            (o.payment_status === 'paid' && o.payment_method === 'midtrans') || // Midtrans paid = auto verified
+            (o.payment_status === 'paid' && o.payment_method === 'cash') // Cash paid = verified
         ).length
     };
 
@@ -367,13 +403,26 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                             {getStatusBadge(order.payment_status, order.status)}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button
-                                                onClick={() => openModal(order)}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                                Detail
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                {order.payment_method === 'cash' && order.payment_status !== 'paid' && (
+                                                    <select
+                                                        value={order.payment_status}
+                                                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                                                        className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    >
+                                                        <option value="unpaid">Menunggu</option>
+                                                        <option value="paid">Lunas</option>
+                                                        <option value="cancelled">Batal</option>
+                                                    </select>
+                                                )}
+                                                <button
+                                                    onClick={() => openModal(order)}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                    Detail
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -534,6 +583,69 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
+                        <div className="text-center">
+                            {/* Icon */}
+                            <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                                <AlertTriangle className="w-8 h-8 text-yellow-600" />
+                            </div>
+                            
+                            {/* Title */}
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                                Konfirmasi Perubahan Status
+                            </h3>
+                            
+                            {/* Message */}
+                            <p className="text-gray-600 mb-2">
+                                Apakah Anda yakin ingin mengubah status pesanan menjadi:
+                            </p>
+                            <p className="text-xl font-bold mb-6">
+                                {confirmData.newStatus === 'paid' && (
+                                    <span className="text-green-600">✓ Lunas</span>
+                                )}
+                                {confirmData.newStatus === 'unpaid' && (
+                                    <span className="text-yellow-600">⏳ Menunggu</span>
+                                )}
+                                {confirmData.newStatus === 'cancelled' && (
+                                    <span className="text-red-600">✕ Dibatalkan</span>
+                                )}
+                            </p>
+                            
+                            {/* Buttons */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowConfirmModal(false);
+                                        setConfirmData({ orderId: null, newStatus: null });
+                                    }}
+                                    disabled={isProcessing}
+                                    className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={confirmStatusChange}
+                                    disabled={isProcessing}
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                            Memproses...
+                                        </>
+                                    ) : (
+                                        'Oke, Ubah Status'
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

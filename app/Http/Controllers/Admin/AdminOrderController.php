@@ -62,12 +62,19 @@ class AdminOrderController extends Controller
     public function updateStatus(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'status' => 'required|in:pending,paid,cancelled'
+            'payment_status' => 'required|in:unpaid,paid,cancelled'
         ]);
 
-        $order->update(['status' => $validated['status']]);
+        $updateData = ['payment_status' => $validated['payment_status']];
+        
+        // Jika diubah jadi paid, set paid_at
+        if ($validated['payment_status'] === 'paid' && !$order->paid_at) {
+            $updateData['paid_at'] = now();
+        }
 
-        return back()->with('success', 'Status pesanan berhasil diupdate');
+        $order->update($updateData);
+
+        return back()->with('success', 'Status pembayaran berhasil diupdate');
     }
 
     /**

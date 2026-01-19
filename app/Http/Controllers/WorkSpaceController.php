@@ -11,7 +11,9 @@ class WorkspaceController extends Controller
     public function index($categorySlug = 'coworking-space')
     {
         // Cari kategori berdasarkan slug
-        $category = Category::where('slug', $categorySlug)->first();
+        $category = Category::where('slug', $categorySlug)
+            ->select('id', 'name', 'slug')
+            ->first();
         
         if (!$category) {
             return Inertia::render('WorkSpaceSection', [
@@ -21,35 +23,15 @@ class WorkspaceController extends Controller
             ]);
         }
         
-        // custom_options is a JSON column (not a relation), so we don't eager-load it
-        $products = Product::with(['category', 'variants'])
+        $products = Product::with(['category:id,name,slug', 'variants'])
             ->where('category_id', $category->id)
             ->where('is_active', true)
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'slug' => $product->slug,
-                    'subtitle' => $product->subtitle,
-                    'description' => $product->description,
-                    'promo_label' => $product->promo_label,
-                    'base_price' => $product->base_price,
-                    'images' => $product->images ?? [],
-                    'is_featured' => $product->is_featured,
-                    'variants' => $product->variants,
-                    'custom_options' => $product->custom_options,
-                    'category' => [
-                        'id' => $product->category->id,
-                        'name' => $product->category->name,
-                        'slug' => $product->category->slug,
-                    ],
-                ];
-            });
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id')
+            ->get();
         
         return Inertia::render('WorkSpaceSection', [
             'products' => $products,
-            'currentCategory' => $category->only(['id', 'name', 'slug']),
+            'currentCategory' => $category,
             'categories' => Category::select('id', 'name', 'slug')->get()
         ]);
     }
