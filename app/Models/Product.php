@@ -25,6 +25,7 @@ class Product extends Model
         'meta_description',
         'meta_keywords',
         'category_id',
+        'product_type',
     ];
 
     protected $casts = [
@@ -33,8 +34,10 @@ class Product extends Model
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'base_price' => 'decimal:2',
-        'sort_order' => 'integer', // TAMBAHKAN INI
+        'sort_order' => 'integer',
     ];
+
+    protected $appends = ['min_price', 'max_price'];
 
     protected static function boot()
     {

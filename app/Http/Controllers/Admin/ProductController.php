@@ -77,6 +77,7 @@ class ProductController extends Controller
         'promo_label' => 'nullable|string|max:100',
         'base_price' => 'required|numeric|min:0',
         'category_id' => 'required|exists:categories,id',
+        'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'sort_order' => 'nullable|integer|min:0',
@@ -103,7 +104,8 @@ class ProductController extends Controller
         'variants.*.stock_quantity' => 'nullable|integer|min:0',
         'variants.*.manage_stock' => 'nullable|boolean',
         'variants.*.sku' => 'nullable|string|max:100',
-        
+        'variants.*.duration_hours' => 'nullable|numeric|min:0',
+
         // Recommendations
         'recommendations' => 'nullable|array',
         'recommendations.*' => 'exists:products,id',
@@ -129,6 +131,7 @@ class ProductController extends Controller
             'promo_label' => $validated['promo_label'] ?? null,
             'base_price' => $validated['base_price'],
             'category_id' => $validated['category_id'],
+            'product_type' => $validated['product_type'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
             'is_featured' => $validated['is_featured'] ?? false,
             'sort_order' => $validated['sort_order'] ?? 0,
@@ -239,6 +242,7 @@ class ProductController extends Controller
             'promo_label' => 'nullable|string|max:100',
             'base_price' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
+            'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             'sort_order' => 'integer|min:0',
@@ -259,15 +263,17 @@ class ProductController extends Controller
             
             // Variants
             'variants' => 'nullable|array',
-            'variants.*.id' => 'nullable|exists:product_variants,id',
+            'variants.*.id' => 'nullable|integer',
             'variants.*.name' => 'required|string|max:255',
             'variants.*.price' => 'required|numeric|min:0',
             'variants.*.compare_price' => 'nullable|numeric|min:0',
             'variants.*.attributes' => 'nullable|array',
-            'variants.*.stock_quantity' => 'integer|min:0',
+            'variants.*.stock_quantity' => 'nullable|integer|min:0',
             'variants.*.manage_stock' => 'boolean',
+            'variants.*.is_active' => 'boolean',
             'variants.*.sku' => 'nullable|string|max:100',
-            
+            'variants.*.duration_hours' => 'nullable|numeric|min:0',
+
             // Recommendations
             'recommendations' => 'nullable|array',
             'recommendations.*' => 'exists:products,id',
@@ -298,19 +304,34 @@ class ProductController extends Controller
                 $updatedVariantIds = [];
 
                 foreach ($validated['variants'] as $variantData) {
-                    if (isset($variantData['id']) && $variantData['id']) {
-                        // Update existing variant
+                    $variant = null;
+
+                    if (!empty($variantData['id'])) {
+                        // Update existing variant by ID
                         $variant = ProductVariant::find($variantData['id']);
-                        if ($variant && $variant->product_id === $product->id) {
+                        if ($variant && (int) $variant->product_id === (int) $product->id) {
                             $variant->update($variantData);
                             $updatedVariantIds[] = $variant->id;
                         }
                     } else {
-                        // Create new variant
-                        $variant = new ProductVariant($variantData);
-                        $variant->product_id = $product->id;
-                        $variant->save();
-                        $updatedVariantIds[] = $variant->id;
+                        // No ID - try to match by SKU to avoid duplicate constraint violation
+                        if (!empty($variantData['sku'])) {
+                            $variant = ProductVariant::where('product_id', $product->id)
+                                ->where('sku', $variantData['sku'])
+                                ->first();
+                        }
+
+                        if ($variant) {
+                            // Found existing variant by SKU, update it
+                            $variant->update($variantData);
+                            $updatedVariantIds[] = $variant->id;
+                        } else {
+                            // Create new variant
+                            $newVariant = new ProductVariant($variantData);
+                            $newVariant->product_id = $product->id;
+                            $newVariant->save();
+                            $updatedVariantIds[] = $newVariant->id;
+                        }
                     }
                 }
 
@@ -343,7 +364,11 @@ class ProductController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat memperbarui produk.']);
+            \Log::error('Product update failed: ' . $e->getMessage(), [
+                'product_id' => $product->id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
     }
 

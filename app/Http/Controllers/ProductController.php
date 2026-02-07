@@ -68,6 +68,7 @@ class ProductController extends Controller
             'promo_label' => $product->promo_label ?? null,
             'images' => $this->parseImages($product->images),
             'is_active' => $product->is_active ?? true,
+            'product_type' => $product->product_type ?? null,
             'category' => null,
             'variants' => [],
             'custom_options' => [],
@@ -99,6 +100,7 @@ class ProductController extends Controller
                     'sort_order' => (int) ($variant->sort_order ?? 0),
                     'attributes' => $variant->attributes ?? null,
                     'image' => $variant->image ?? null,
+                    'duration_hours' => $variant->duration_hours ? (float) $variant->duration_hours : null,
                 ];
             })->toArray();
         }

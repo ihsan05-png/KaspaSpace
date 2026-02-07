@@ -26,7 +26,7 @@ class WorkspaceController extends Controller
         $products = Product::with(['category:id,name,slug', 'variants'])
             ->where('category_id', $category->id)
             ->where('is_active', true)
-            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id')
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id', 'product_type')
             ->get();
         
         return Inertia::render('WorkSpaceSection', [

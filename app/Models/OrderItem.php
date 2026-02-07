@@ -9,10 +9,17 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id', 'product_id', 'product_name', 'variant_id', 'variant_name',
-        'custom_options', 'quantity', 'price', 'subtotal'
+        'custom_options', 'quantity', 'price', 'subtotal',
+        'booking_start_at', 'booking_end_at', 'stock_reduced', 'stock_restored'
     ];
-    
-    protected $casts = ['custom_options' => 'array'];
+
+    protected $casts = [
+        'custom_options' => 'array',
+        'booking_start_at' => 'datetime',
+        'booking_end_at' => 'datetime',
+        'stock_reduced' => 'boolean',
+        'stock_restored' => 'boolean',
+    ];
 
     public function order()
     {

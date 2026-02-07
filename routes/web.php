@@ -20,6 +20,7 @@ use App\Http\Controllers\NewsController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
+use App\Http\Controllers\Admin\NewsletterController;
 
 use App\Models\GoogleSheetsConfig;
 use App\Models\Product;
@@ -68,6 +69,15 @@ Route::middleware(['redirect.admin'])->group(function () {
         return Inertia::render('Contact');
     })->name('contact');
 
+    // Terms & Privacy Routes
+    Route::get('/terms', function () {
+        return Inertia::render('Terms');
+    })->name('terms');
+
+    Route::get('/privacy', function () {
+        return Inertia::render('Privacy');
+    })->name('privacy');
+
     // Public News Routes
     Route::get('/news', [NewsController::class, 'publicIndex'])->name('news.index');
     Route::get('/news/{slug}', [NewsController::class, 'publicShow'])->name('news.show');
@@ -83,12 +93,19 @@ Route::middleware(['redirect.admin'])->group(function () {
     Route::get('/workspace-section', function () {
         $products = Product::with(['category:id,name,slug', 'variants'])
             ->where('is_active', 1)
-            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id', 'sort_order')
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id', 'sort_order', 'product_type')
             ->orderBy('sort_order')
             ->get();
-    
+
+        // Add min_price and max_price for each product
+        $products->transform(function ($product) {
+            $product->min_price = $product->getMinPriceAttribute();
+            $product->max_price = $product->getMaxPriceAttribute();
+            return $product;
+        });
+
         return Inertia::render('WorkSpaceSection', [
-            'products' => $products
+            'products' => $products,
         ]);
     })->name('workspace.section');
 
@@ -108,7 +125,7 @@ Route::middleware(['redirect.admin'])->group(function () {
                 return $query->where('category_id', $category->id);
             })
             ->where('is_active', 1)
-            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order')
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order', 'product_type')
             ->orderBy('sort_order')
             ->get();
 
@@ -128,7 +145,7 @@ Route::middleware(['redirect.admin'])->group(function () {
                 return $query->where('category_id', $category->id);
             })
             ->where('is_active', 1)
-            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order')
+            ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'category_id', 'sort_order', 'product_type')
             ->orderBy('sort_order')
             ->get();
 
@@ -148,7 +165,14 @@ Route::middleware(['redirect.admin'])->group(function () {
 
     // API untuk real-time data
     Route::get('/api/schedule-data', [ScheduleController::class, 'getPublicData']);
-    
+
+    // Booking availability API
+    Route::get('/api/booking/availability', [\App\Http\Controllers\BookingAvailabilityController::class, 'check'])->name('api.booking.availability');
+
+    // Room schedule API (real-time availability from database)
+    Route::get('/api/room-schedule', [\App\Http\Controllers\RoomScheduleController::class, 'getSchedule'])->name('api.room.schedule');
+    Route::get('/api/room-schedule/today', [\App\Http\Controllers\RoomScheduleController::class, 'getTodaySummary'])->name('api.room.today');
+
     // Product catalog
     Route::get('/products', [\App\Http\Controllers\ProductController::class, 'index'])->name('products.index');
     Route::get('/products/{category:slug}', [\App\Http\Controllers\ProductController::class, 'category'])->name('products.category');
@@ -169,6 +193,9 @@ Route::middleware(['redirect.admin'])->group(function () {
     // Midtrans
     Route::post('/midtrans/create-snap-token/{order}', [MidtransController::class, 'createSnapToken'])->name('midtrans.create-snap-token');
     Route::get('/midtrans/check-status/{order}', [MidtransController::class, 'checkStatus'])->name('midtrans.check-status');
+
+    // API to check order status (public - for payment page polling)
+    Route::get('/api/orders/{order}/status', [OrderController::class, 'checkStatus'])->name('api.orders.status.public');
 });
 
 // Midtrans Webhook (tidak pakai middleware karena dari external)
@@ -346,6 +373,10 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Users Management Routes
     Route::resource('users', UserController::class);
 
+    // Newsletter Routes
+    Route::post('newsletter/send', [NewsletterController::class, 'send'])->name('newsletter.send');
+    Route::delete('newsletter/unsubscribe/{subscriber}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
+
     Route::get('integrations', function () {
         return Inertia::render('admin/Integrations', [
             'auth' => ['user' => Auth::user()]
@@ -356,7 +387,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
-    
+    Route::post('/orders/{order}/send-invoice', [AdminOrderController::class, 'sendInvoice'])->name('orders.send-invoice');
+    Route::get('/orders/{order}/download-invoice', [AdminOrderController::class, 'downloadInvoice'])->name('orders.download-invoice');
+
     // News Management Routes
     Route::resource('news', NewsController::class);
 });

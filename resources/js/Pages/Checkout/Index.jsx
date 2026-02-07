@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { ShoppingBag, User, Mail, Phone, FileText, ArrowLeft, CheckCircle, CreditCard, Wallet, Tag, X } from 'lucide-react';
+import { ShoppingBag, User, Mail, Phone, FileText, ArrowLeft, CheckCircle, CreditCard, Wallet, Tag, X, QrCode, Building2, FileCheck } from 'lucide-react';
 import axios from 'axios';
 
-export default function CheckoutIndex({ 
-    cart = [], 
-    subtotal = 0, 
-    tax = 0, 
+export default function CheckoutIndex({
+    cart = [],
+    subtotal = 0,
+    tax = 0,
     total = 0,
-    user = null
+    user = null,
+    paymentSettings = null
 }) {
     const [formData, setFormData] = useState({
         customer_name: user?.name || '',
@@ -18,12 +19,41 @@ export default function CheckoutIndex({
         payment_method: 'midtrans',
         discount_code: '',
     });
+    // Check if user has already agreed (registered users who agreed, not admin-created users)
+    const hasAgreed = user?.agreed_terms && user?.agreed_privacy && user?.agreed_newsletter;
+    const needsAgreement = !user || !hasAgreed;
+
+    const [agreements, setAgreements] = useState({
+        terms: hasAgreed || false,
+        privacy: hasAgreed || false,
+        newsletter: hasAgreed || false,
+    });
+
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [discountCode, setDiscountCode] = useState('');
     const [appliedDiscount, setAppliedDiscount] = useState(null);
     const [discountLoading, setDiscountLoading] = useState(false);
     const [discountError, setDiscountError] = useState('');
+    const [showModal, setShowModal] = useState(null); // 'terms' | 'privacy' | null
+
+    const termsContent = [
+        { title: "1. Penerimaan Syarat", items: ["Dengan mengakses dan menggunakan layanan kami, Anda menyetujui untuk terikat oleh Syarat & Ketentuan ini. Jika Anda tidak setuju dengan syarat ini, mohon untuk tidak menggunakan layanan kami."] },
+        { title: "2. Penggunaan Layanan", items: ["Anda setuju untuk menggunakan layanan kami hanya untuk tujuan yang sah dan sesuai dengan hukum yang berlaku. Anda tidak diperkenankan untuk:", "Menggunakan layanan untuk tujuan ilegal atau tidak sah", "Melanggar hak kekayaan intelektual pihak lain", "Mengganggu kenyamanan pengguna lain di area coworking space"] },
+        { title: "3. Reservasi dan Pembayaran", items: ["Reservasi berlaku sesuai dengan durasi yang dipilih saat pemesanan.", "Semua pembayaran harus dilakukan sesuai dengan metode pembayaran yang tersedia.", "Pembatalan reservasi yang dilakukan kurang dari 24 jam sebelum waktu penggunaan tidak akan mendapat pengembalian dana.", "Pengembalian dana untuk pembatalan yang memenuhi syarat akan diproses dalam waktu 3-7 hari kerja."] },
+        { title: "4. Kewajiban Pengguna", items: ["Pengguna wajib menjaga kebersihan dan kerapihan area kerja yang digunakan.", "Pengguna bertanggung jawab atas keamanan barang-barang pribadi mereka.", "Pengguna wajib mematuhi peraturan yang berlaku di area Kaspa Space.", "Keterlambatan lebih dari 30 menit tanpa konfirmasi dapat mengakibatkan pembatalan reservasi."] },
+        { title: "5. Batasan Tanggung Jawab", items: ["Kaspa Space tidak bertanggung jawab atas kehilangan atau kerusakan barang pribadi pengguna.", "Kaspa Space tidak bertanggung jawab atas gangguan layanan yang disebabkan oleh faktor di luar kendali kami.", "Kaspa Space berhak menolak atau menghentikan layanan kepada pengguna yang melanggar ketentuan."] },
+        { title: "6. Kontak", items: ["Segala pertanyaan atau keluhan dapat disampaikan melalui email hello@kaspaspace.com.", "Penyelesaian sengketa akan dilakukan secara musyawarah mufakat."] },
+    ];
+
+    const privacyContent = [
+        { title: "1. Pendahuluan", items: ["Kebijakan Privasi ini menjelaskan bagaimana Kaspa Space mengumpulkan, menggunakan, dan melindungi informasi pribadi Anda.", "Kami berkomitmen untuk melindungi privasi Anda dan memastikan bahwa data pribadi Anda diproses secara aman."] },
+        { title: "2. Informasi yang Kami Kumpulkan", items: ["Informasi identitas: nama lengkap, alamat email, nomor telepon.", "Informasi transaksi: riwayat pemesanan, metode pembayaran, dan preferensi layanan.", "Informasi teknis: alamat IP, jenis browser, perangkat yang digunakan."] },
+        { title: "3. Penggunaan Informasi", items: ["Memproses dan mengelola reservasi serta transaksi pembayaran Anda.", "Mengirimkan konfirmasi, pengingat, dan informasi penting terkait layanan.", "Meningkatkan kualitas layanan dan pengalaman pengguna.", "Mengirimkan informasi promosi dan newsletter (dengan persetujuan Anda)."] },
+        { title: "4. Keamanan Data", items: ["Data Anda disimpan di server yang aman dengan enkripsi standar industri.", "Akses ke data pribadi dibatasi hanya untuk karyawan yang membutuhkan.", "Kami tidak menjual atau menyewakan data pribadi Anda kepada pihak ketiga."] },
+        { title: "5. Hak Anda", items: ["Hak akses: Anda dapat meminta salinan data pribadi yang kami miliki.", "Hak koreksi: Anda dapat meminta perbaikan data yang tidak akurat.", "Hak penghapusan: Anda dapat meminta penghapusan data pribadi Anda.", "Hak keberatan: Anda dapat menolak pemrosesan data untuk tujuan pemasaran."] },
+        { title: "6. Kontak", items: ["Untuk pertanyaan tentang kebijakan privasi, hubungi kami di hello@kaspaspace.com.", "Permintaan terkait hak data pribadi akan diproses dalam waktu 30 hari kerja."] },
+    ];
 
     const paymentMethods = [
         {
@@ -33,6 +63,20 @@ export default function CheckoutIndex({
             description: 'Bayar dengan kartu kredit, e-wallet, bank transfer',
             color: 'from-blue-500 to-cyan-500'
         },
+        ...(paymentSettings?.qris_image ? [{
+            id: 'qris',
+            name: 'QRIS',
+            icon: QrCode,
+            description: 'Scan QR Code untuk pembayaran',
+            color: 'from-purple-500 to-pink-500'
+        }] : []),
+        ...(paymentSettings?.bank_name && paymentSettings?.account_number ? [{
+            id: 'bank_transfer',
+            name: 'Transfer Bank',
+            icon: Building2,
+            description: `Transfer ke ${paymentSettings.bank_name}`,
+            color: 'from-orange-500 to-amber-500'
+        }] : []),
         {
             id: 'cash',
             name: 'Tunai',
@@ -118,6 +162,19 @@ export default function CheckoutIndex({
         }));
     };
 
+    const handleAgreementChange = (key) => {
+        setAgreements(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+        if (errors[key]) {
+            setErrors(prev => ({
+                ...prev,
+                [key]: null
+            }));
+        }
+    };
+
     const calculateFinalTotal = () => {
         let finalTotal = total;
         if (appliedDiscount) {
@@ -145,6 +202,18 @@ export default function CheckoutIndex({
         if (!formData.payment_method) {
             newErrors.payment_method = 'Pilih metode pembayaran';
         }
+        // Validate agreements for users who haven't agreed yet (guests + admin-created users)
+        if (needsAgreement) {
+            if (!agreements.terms) {
+                newErrors.terms = 'Anda harus menyetujui Syarat & Ketentuan';
+            }
+            if (!agreements.privacy) {
+                newErrors.privacy = 'Anda harus menyetujui Kebijakan Privasi';
+            }
+            if (!agreements.newsletter) {
+                newErrors.newsletter = 'Anda harus menyetujui berlangganan newsletter';
+            }
+        }
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -154,9 +223,17 @@ export default function CheckoutIndex({
         }
 
         setIsSubmitting(true);
-        console.log('Submitting to backend:', formData);
 
-        router.post('/checkout', formData, {
+        // Include agreement data for users who need to agree
+        const submitData = {
+            ...formData,
+            agreed_newsletter: needsAgreement ? agreements.newsletter : false,
+            needs_agreement: needsAgreement,
+        };
+
+        console.log('Submitting to backend:', submitData);
+
+        router.post('/checkout', submitData, {
             preserveScroll: true,
             onError: (errors) => {
                 console.error('Checkout errors:', errors);
@@ -353,6 +430,16 @@ export default function CheckoutIndex({
                                         💡 Setelah checkout, Anda akan diarahkan ke halaman pembayaran Midtrans untuk menyelesaikan transaksi dengan berbagai metode pembayaran.
                                     </p>
                                 )}
+                                {formData.payment_method === 'qris' && (
+                                    <p className="text-sm text-gray-700">
+                                        💡 Setelah checkout, Anda akan melihat QR Code QRIS untuk melakukan pembayaran melalui aplikasi e-wallet atau mobile banking.
+                                    </p>
+                                )}
+                                {formData.payment_method === 'bank_transfer' && (
+                                    <p className="text-sm text-gray-700">
+                                        💡 Setelah checkout, Anda akan melihat detail rekening bank untuk melakukan transfer pembayaran.
+                                    </p>
+                                )}
                                 {formData.payment_method === 'cash' && (
                                     <p className="text-sm text-gray-700">
                                         💡 Siapkan uang tunai sesuai total pembayaran saat pengambilan pesanan.
@@ -361,10 +448,136 @@ export default function CheckoutIndex({
                             </div>
                         </div>
 
+                        {/* Agreement Section - For guests and users who haven't agreed yet */}
+                        {needsAgreement && (
+                        <div className="bg-white rounded-xl shadow-md p-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <FileCheck className="w-5 h-5 text-blue-600" />
+                                Persetujuan
+                            </h2>
+
+                            <div className="space-y-4">
+                                {/* Terms & Conditions */}
+                                <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                    agreements.terms
+                                        ? 'border-blue-500 bg-blue-50'
+                                        : errors.terms
+                                            ? 'border-red-300 bg-red-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={agreements.terms}
+                                        onChange={() => handleAgreementChange('terms')}
+                                        className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-900">
+                                                Syarat & Ketentuan
+                                            </span>
+                                            <span className="text-red-500 text-sm">*</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Saya menyetujui{' '}
+                                            <button
+                                                type="button"
+                                                className="text-blue-600 hover:underline font-medium"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    setShowModal('terms');
+                                                }}
+                                            >
+                                                Syarat & Ketentuan
+                                            </button>
+                                            {' '}yang berlaku.
+                                        </p>
+                                    </div>
+                                </label>
+                                {errors.terms && (
+                                    <p className="text-red-500 text-sm -mt-2 ml-1">{errors.terms}</p>
+                                )}
+
+                                {/* Privacy Policy */}
+                                <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                    agreements.privacy
+                                        ? 'border-blue-500 bg-blue-50'
+                                        : errors.privacy
+                                            ? 'border-red-300 bg-red-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={agreements.privacy}
+                                        onChange={() => handleAgreementChange('privacy')}
+                                        className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-900">
+                                                Kebijakan Privasi
+                                            </span>
+                                            <span className="text-red-500 text-sm">*</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Saya menyetujui{' '}
+                                            <button
+                                                type="button"
+                                                className="text-blue-600 hover:underline font-medium"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    setShowModal('privacy');
+                                                }}
+                                            >
+                                                Kebijakan Privasi
+                                            </button>
+                                            {' '}yang berlaku.
+                                        </p>
+                                    </div>
+                                </label>
+                                {errors.privacy && (
+                                    <p className="text-red-500 text-sm -mt-2 ml-1">{errors.privacy}</p>
+                                )}
+
+                                {/* Newsletter Subscription */}
+                                <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                    agreements.newsletter
+                                        ? 'border-blue-500 bg-blue-50'
+                                        : errors.newsletter
+                                            ? 'border-red-300 bg-red-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={agreements.newsletter}
+                                        onChange={() => handleAgreementChange('newsletter')}
+                                        className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-gray-900">
+                                                Berlangganan Newsletter
+                                            </span>
+                                            <span className="text-red-500 text-sm">*</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Saya bersedia menerima informasi promo, penawaran menarik, dan update terbaru melalui email.
+                                        </p>
+                                    </div>
+                                </label>
+                                {errors.newsletter && (
+                                    <p className="text-red-500 text-sm -mt-2 ml-1">{errors.newsletter}</p>
+                                )}
+                            </div>
+                        </div>
+                        )}
+
                             {/* Submit Button */}
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || (needsAgreement && (!agreements.terms || !agreements.privacy || !agreements.newsletter))}
                                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] flex items-center justify-center gap-2"
                             >
                                 {isSubmitting ? (
@@ -401,6 +614,15 @@ export default function CheckoutIndex({
                                             {item.variant_name && (
                                                 <p className="text-xs text-blue-600 mt-1">
                                                     {item.variant_name}
+                                                </p>
+                                            )}
+                                            {item.booking_date && (
+                                                <p className="text-xs text-green-600 mt-1">
+                                                    {['private_office', 'virtual_office'].includes(item.product_type) ? (
+                                                        <>Mulai sewa: {new Date(item.booking_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                                                    ) : (
+                                                        <>Booking: {item.booking_date} pukul {item.booking_start_time}</>
+                                                    )}
                                                 </p>
                                             )}
                                             <p className="text-xs text-gray-500 mt-1">
@@ -515,6 +737,58 @@ export default function CheckoutIndex({
                     </div>
                 </div>
             </div>
+
+            {/* Agreement Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowModal(null)}>
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <h2 className="text-xl font-bold text-gray-900">
+                                {showModal === 'terms' ? 'Syarat & Ketentuan' : 'Kebijakan Privasi'}
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(null)}
+                                className="text-gray-400 hover:text-gray-600 transition"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {(showModal === 'terms' ? termsContent : privacyContent).map((section, idx) => (
+                                <div key={idx}>
+                                    <h3 className="font-bold text-gray-900 mb-2">{section.title}</h3>
+                                    <ul className="space-y-2">
+                                        {section.items.map((item, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(null)}
+                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

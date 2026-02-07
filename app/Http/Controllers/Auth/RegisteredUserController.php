@@ -35,6 +35,13 @@ class RegisteredUserController extends Controller
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'phone' => 'required|string|max:20',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'terms' => 'accepted',
+            'privacy' => 'accepted',
+            'newsletter' => 'accepted',
+        ], [
+            'terms.accepted' => 'Anda harus menyetujui Syarat & Ketentuan.',
+            'privacy.accepted' => 'Anda harus menyetujui Kebijakan Privasi.',
+            'newsletter.accepted' => 'Anda harus menyetujui berlangganan newsletter.',
         ]);
 
         $user = User::create([
@@ -43,12 +50,16 @@ class RegisteredUserController extends Controller
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'role' => 'user',
+            'agreed_terms' => $request->terms ? true : false,
+            'agreed_privacy' => $request->privacy ? true : false,
+            'agreed_newsletter' => $request->newsletter ? true : false,
+            'agreed_at' => now(),
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect('/');  // Redirect ke halaman utama setelah registrasi
     }
 }

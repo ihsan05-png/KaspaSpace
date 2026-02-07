@@ -7,6 +7,7 @@ const CreateUser = () => {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
+        phone: '',
         password: '',
         password_confirmation: '',
         role: 'user'
@@ -71,6 +72,24 @@ const CreateUser = () => {
                                     />
                                     {errors.email && (
                                         <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                                    )}
+                                </div>
+
+                                {/* Phone */}
+                                <div>
+                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Nomor Telepon <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        id="phone"
+                                        value={data.phone}
+                                        onChange={(e) => setData('phone', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        placeholder="08xxxxxxxxxx"
+                                    />
+                                    {errors.phone && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
                                     )}
                                 </div>
 

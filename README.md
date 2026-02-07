@@ -167,7 +167,9 @@ Jika Anda punya tambahan spesifik (contoh: modul khusus, service eksternal, webh
 
 ### Kekurangan yang Masih Ada:
 1. Di dalam dashboard admin masih banyak bug seperti: statistik dalam pesanan belum terkalkulasi, belum ada action untuk verifikasi status pesanan, dan masih belum bisa membuat non kategori.
-2. Halaman product seperti Coworking space belum ter filter sesuai kategori, kemudian halaman lainya masih belum ada. bisa di kloning dari halaman product coworking space untuk halaman product lainya.
+2. Halaman product seperti Coworking space belum ter filter sesua
+
+i kategori, kemudian halaman lainya masih belum ada. bisa di kloning dari halaman product coworking space untuk halaman product lainya.
 3. Tabel okupansi manual masih belum terhapus.
 4. Gambar-gambar masih banyak yang belum ter input.
 5. Masih banyak tombol yang belum mengarah ke route yang benar.

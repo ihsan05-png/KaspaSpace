@@ -23,6 +23,10 @@ class User extends Authenticatable
         'phone',
         'password',
         'role',
+        'agreed_terms',
+        'agreed_privacy',
+        'agreed_newsletter',
+        'agreed_at',
     ];
 
     /**
@@ -45,6 +49,10 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'agreed_terms' => 'boolean',
+            'agreed_privacy' => 'boolean',
+            'agreed_newsletter' => 'boolean',
+            'agreed_at' => 'datetime',
         ];
     }
 }

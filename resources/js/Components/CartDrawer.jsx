@@ -152,6 +152,19 @@ export default function CartDrawer({ isOpen, onClose }) {
                                                 </div>
                                             )}
 
+                                            {/* Booking Info */}
+                                            {item.booking_date && (
+                                                <div className="text-xs text-green-700 mt-1 bg-green-50 px-2 py-1 rounded border border-green-200">
+                                                    {['private_office', 'virtual_office'].includes(item.product_type) ? (
+                                                        // Date-only booking: show only date
+                                                        <>Mulai sewa: {new Date(item.booking_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                                                    ) : (
+                                                        // Hourly booking: show date + time
+                                                        <>Booking: {item.booking_date} | {item.booking_start_time}</>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <p className="text-lg font-bold text-blue-900 mt-2">
                                                 Rp{parseFloat(item.price).toLocaleString('id-ID')}
                                             </p>

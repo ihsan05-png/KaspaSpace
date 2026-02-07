@@ -50,7 +50,7 @@ export default function AdminLayout({ children }) {
       current: url.startsWith('/admin/orders') && !url.includes('paymentsettings'),
     },
     {
-      name: 'Produk',
+      name: 'Manajemen Produk',
       icon: ShoppingBagIcon,
       current: url.startsWith('/admin/products') || url.startsWith('/admin/categories'),
       children: [
@@ -60,7 +60,7 @@ export default function AdminLayout({ children }) {
           current: url.startsWith('/admin/categories'),
         },
         {
-          name: 'Ulasan produk',
+          name: 'Produk',
           href: '/admin/products',
           current: url.startsWith('/admin/products'),
         },
@@ -148,7 +148,7 @@ export default function AdminLayout({ children }) {
             {item.children ? (
               <div>
                 <button
-                  onClick={item.name === 'Produk' ? handleProductsToggle : undefined}
+                  onClick={item.name === 'Manajemen Produk' ? handleProductsToggle : undefined}
                   className={`group w-full flex items-center justify-between pl-2 pr-1 py-2 text-sm font-medium rounded-md transition-colors ${
                     item.current
                       ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-500'
@@ -163,7 +163,7 @@ export default function AdminLayout({ children }) {
                     />
                     {item.name}
                   </div>
-                  {item.name === 'Produk' && (
+                  {item.name === 'Manajemen Produk' && (
                     productsMenuOpen ? (
                       <ChevronDownIcon className="h-4 w-4 text-gray-400" />
                     ) : (
@@ -171,7 +171,7 @@ export default function AdminLayout({ children }) {
                     )
                   )}
                 </button>
-                {item.name === 'Produk' && productsMenuOpen && (
+                {item.name === 'Manajemen Produk' && productsMenuOpen && (
                   <div className="mt-1 space-y-1">
                     {item.children.map((subItem) => (
                       <Link
@@ -276,7 +276,7 @@ export default function AdminLayout({ children }) {
                     {item.children ? (
                       <div>
                         <button
-                          onClick={item.name === 'Produk' ? handleProductsToggle : undefined}
+                          onClick={item.name === 'Manajemen Produk' ? handleProductsToggle : undefined}
                           className={`group w-full flex items-center justify-between pl-2 pr-1 py-2 text-sm font-medium rounded-md transition-colors ${
                             item.current
                               ? 'bg-indigo-50 text-indigo-700'
@@ -287,7 +287,7 @@ export default function AdminLayout({ children }) {
                             <item.icon className="mr-3 flex-shrink-0 h-5 w-5 text-gray-400" />
                             {item.name}
                           </div>
-                          {item.name === 'Produk' && (
+                          {item.name === 'Manajemen Produk' && (
                             productsMenuOpen ? (
                               <ChevronDownIcon className="h-4 w-4 text-gray-400" />
                             ) : (
@@ -295,7 +295,7 @@ export default function AdminLayout({ children }) {
                             )
                           )}
                         </button>
-                        {item.name === 'Produk' && productsMenuOpen && (
+                        {item.name === 'Manajemen Produk' && productsMenuOpen && (
                           <div className="mt-1 space-y-1">
                             {item.children.map((subItem) => (
                               <Link

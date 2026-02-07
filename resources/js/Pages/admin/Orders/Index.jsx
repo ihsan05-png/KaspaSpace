@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { router, Link, usePage, Head } from '@inertiajs/react';
+import { router, usePage, Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import axios from 'axios';
-import { 
-    Search, 
-    CheckCircle, 
-    XCircle, 
-    Clock, 
+import {
+    Search,
+    CheckCircle,
+    XCircle,
+    Clock,
     Eye,
     Filter,
     ChevronDown,
@@ -15,7 +15,13 @@ import {
     CreditCard,
     DollarSign,
     RefreshCw,
-    AlertTriangle
+    AlertTriangle,
+    Printer,
+    Mail,
+    FileText,
+    Send,
+    Package,
+    Download
 } from 'lucide-react';
 
 export default function AdminOrdersIndex({ orders = [] }) {
@@ -30,71 +36,40 @@ export default function AdminOrdersIndex({ orders = [] }) {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmData, setConfirmData] = useState({ orderId: null, newStatus: null });
+    const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [emailSent, setEmailSent] = useState(false);
 
     // Auto-sync Midtrans orders every 10 seconds
     useEffect(() => {
-        const interval = setInterval(() => {
-            syncMidtransOrders();
-        }, 10000); // 10 seconds
+        const syncMidtransOrders = async () => {
+            const midtransOrders = orders.filter(o =>
+                o.payment_method === 'midtrans' &&
+                o.payment_status === 'unpaid'
+            );
 
+            if (midtransOrders.length === 0) return;
+
+            try {
+                await Promise.all(
+                    midtransOrders.map(order =>
+                        axios.get(`/midtrans/check-status/${order.id}`).catch(() => null)
+                    )
+                );
+                router.reload({ only: ['orders'] });
+            } catch (error) {
+                console.error('Sync error:', error);
+            }
+        };
+
+        const interval = setInterval(syncMidtransOrders, 10000);
         return () => clearInterval(interval);
     }, [orders]);
 
-    const syncMidtransOrders = async () => {
-        const midtransOrders = orders.filter(o => 
-            o.payment_method === 'midtrans' && 
-            o.payment_status === 'unpaid'
-        );
-
-        console.log('Syncing Midtrans orders:', midtransOrders.length);
-
-        if (midtransOrders.length === 0) {
-            console.log('No orders to sync');
-            return;
-        }
-
-        try {
-            const promises = midtransOrders.map(order => 
-                axios.get(`/midtrans/check-status/${order.id}`)
-                    .then(response => {
-                        console.log(`Order ${order.id} checked:`, response.data);
-                        return response.data;
-                    })
-                    .catch(error => {
-                        console.error(`Error checking order ${order.id}:`, error);
-                        return null;
-                    })
-            );
-            
-            await Promise.all(promises);
-            console.log('All orders checked, reloading...');
-            
-            // Reload page after checking all orders
-            router.reload({ only: ['orders'] });
-        } catch (error) {
-            console.error('Sync error:', error);
-        }
-    };
-
-    const handleManualSync = async () => {
-        setIsSyncing(true);
-        console.log('Manual sync triggered');
-        try {
-            await syncMidtransOrders();
-            setTimeout(() => {
-                setIsSyncing(false);
-                console.log('Sync completed');
-            }, 1000);
-        } catch (error) {
-            console.error('Manual sync error:', error);
-            setIsSyncing(false);
-        }
-    };
-
-    const handleStatusChange = async (orderId, newStatus) => {
+    const handleStatusChange = (orderId, newStatus) => {
+        console.log('handleStatusChange called:', orderId, newStatus);
         setConfirmData({ orderId, newStatus });
         setShowConfirmModal(true);
     };
@@ -138,22 +113,6 @@ export default function AdminOrdersIndex({ orders = [] }) {
         return matchesSearch && matchesFilter;
     });
 
-    const handleVerifyPayment = (orderId, status) => {
-        setIsProcessing(true);
-        router.post(`/admin/orders/${orderId}/verify-payment`, {
-            status: status
-        }, {
-            onSuccess: () => {
-                setIsProcessing(false);
-                setIsModalOpen(false);
-                setSelectedOrder(null);
-            },
-            onError: () => {
-                setIsProcessing(false);
-            }
-        });
-    };
-
     const openModal = (order) => {
         setSelectedOrder(order);
         setIsModalOpen(true);
@@ -162,6 +121,185 @@ export default function AdminOrdersIndex({ orders = [] }) {
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedOrder(null);
+        setEmailSent(false);
+    };
+
+    const openInvoiceModal = (order) => {
+        setSelectedOrder(order);
+        setShowInvoiceModal(true);
+        setEmailSent(false);
+    };
+
+    const closeInvoiceModal = () => {
+        setShowInvoiceModal(false);
+        setSelectedOrder(null);
+        setEmailSent(false);
+    };
+
+    const getInvoiceHtml = () => {
+        const logoUrl = `${window.location.origin}/images/kaspa-space-logo.png`;
+        const paymentMethodText = selectedOrder?.payment_method === 'cash' ? 'Tunai' :
+            selectedOrder?.payment_method === 'qris' ? 'QRIS' :
+            selectedOrder?.payment_method === 'bank_transfer' ? 'Transfer Bank' :
+            selectedOrder?.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder?.payment_method;
+
+        const statusText = selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified' ? 'Lunas' :
+            selectedOrder?.status === 'cancelled' ? 'Dibatalkan' : 'Menunggu Pembayaran';
+
+        const statusClass = selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified' ? 'status-paid' :
+            selectedOrder?.status === 'cancelled' ? 'status-cancelled' : 'status-unpaid';
+
+        const itemsHtml = selectedOrder?.items?.map(item => {
+            let bookingInfo = '';
+            if (item.booking_start_at && item.booking_end_at) {
+                const start = new Date(item.booking_start_at);
+                const end = new Date(item.booking_end_at);
+                const isDateOnly = ['private_office', 'virtual_office'].includes(item.product?.product_type);
+
+                if (isDateOnly) {
+                    // Date-only booking: show date range
+                    const startDate = start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const endDate = end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    bookingInfo = `<br><small style="color: #059669;">${startDate} - ${endDate}</small>`;
+                } else {
+                    // Hourly booking: show date + time range
+                    const dateStr = start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const startTime = start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const endTime = end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    bookingInfo = `<br><small style="color: #059669;">${dateStr}, ${startTime} - ${endTime}</small>`;
+                }
+            }
+            return `
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #eee;">
+                    ${item.product_name}
+                    ${item.variant_name ? `<br><small style="color: #3b82f6;">${item.variant_name}</small>` : ''}
+                    ${bookingInfo}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">Rp${Number(item.price).toLocaleString('id-ID')}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">Rp${Number(item.subtotal).toLocaleString('id-ID')}</td>
+            </tr>
+        `}).join('') || '';
+
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invoice ${selectedOrder?.order_number}</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                    .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; }
+                    .invoice-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    .invoice-info div { flex: 1; }
+                    .invoice-info h3 { color: #3b82f6; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
+                    .invoice-info p { margin: 5px 0; font-size: 14px; }
+                    .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    .invoice-table th { background: #3b82f6; color: white; padding: 12px; text-align: left; font-size: 14px; }
+                    .invoice-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+                    .invoice-total { text-align: right; margin-top: 20px; }
+                    .invoice-total .total-row { display: flex; justify-content: flex-end; margin: 5px 0; }
+                    .invoice-total .total-label { width: 150px; text-align: right; padding-right: 20px; }
+                    .invoice-total .total-value { width: 150px; text-align: right; font-weight: bold; }
+                    .invoice-total .grand-total { font-size: 18px; color: #3b82f6; border-top: 2px solid #3b82f6; padding-top: 10px; margin-top: 10px; }
+                    .invoice-footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+                    .status-paid { background: #dcfce7; color: #166534; }
+                    .status-unpaid { background: #fef9c3; color: #854d0e; }
+                    .status-cancelled { background: #fee2e2; color: #991b1b; }
+                    @media print { body { padding: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="invoice-header">
+                    <img src="${logoUrl}" alt="Kaspa Space" style="height: 100px;" />
+                </div>
+                <div class="invoice-info">
+                    <div>
+                        <h3>Informasi Pesanan</h3>
+                        <p><strong>No. Invoice:</strong> ${selectedOrder?.order_number}</p>
+                        <p><strong>Tanggal:</strong> ${formatDate(selectedOrder?.created_at)}</p>
+                        <p><strong>Metode Pembayaran:</strong> ${paymentMethodText}</p>
+                        <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></p>
+                    </div>
+                    <div>
+                        <h3>Informasi Pelanggan</h3>
+                        <p><strong>Nama:</strong> ${selectedOrder?.customer_name}</p>
+                        <p><strong>Email:</strong> ${selectedOrder?.customer_email}</p>
+                        ${selectedOrder?.customer_phone ? `<p><strong>Telepon:</strong> ${selectedOrder?.customer_phone}</p>` : ''}
+                    </div>
+                </div>
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th style="text-align: center;">Qty</th>
+                            <th style="text-align: right;">Harga</th>
+                            <th style="text-align: right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+                <div class="invoice-total">
+                    <div class="total-row grand-total">
+                        <span class="total-label">TOTAL:</span>
+                        <span class="total-value">Rp${Number(selectedOrder?.total).toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                <div class="invoice-footer">
+                    <p>Terima kasih telah berbelanja di Kaspa Space</p>
+                    <p>Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
+                </div>
+            </body>
+            </html>
+        `;
+    };
+
+    const handlePrintInvoice = () => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(getInvoiceHtml());
+        printWindow.document.close();
+        printWindow.focus();
+
+        // Wait for image to load before printing
+        const img = printWindow.document.querySelector('img');
+        const doPrint = () => {
+            printWindow.print();
+            printWindow.close();
+        };
+
+        if (img && !img.complete) {
+            img.onload = doPrint;
+            img.onerror = doPrint;
+        } else {
+            setTimeout(doPrint, 300);
+        }
+    };
+
+    const handleDownloadInvoice = () => {
+        if (!selectedOrder) return;
+
+        // Download PDF langsung dari backend
+        window.location.href = `/admin/orders/${selectedOrder.id}/download-invoice`;
+    };
+
+    const handleSendInvoiceEmail = async () => {
+        if (!selectedOrder) return;
+
+        setIsSendingEmail(true);
+        try {
+            await axios.post(`/admin/orders/${selectedOrder.id}/send-invoice`);
+            setEmailSent(true);
+            setTimeout(() => setEmailSent(false), 3000);
+        } catch (error) {
+            console.error('Error sending invoice:', error);
+            alert('Gagal mengirim invoice. Pastikan konfigurasi email sudah benar.');
+        } finally {
+            setIsSendingEmail(false);
+        }
     };
 
     const getStatusBadge = (paymentStatus, orderStatus) => {
@@ -249,11 +387,11 @@ export default function AdminOrdersIndex({ orders = [] }) {
 
     const stats = {
         pending: orders.filter(o => o.payment_status === 'pending' || o.payment_status === 'unpaid').length,
-        paid: orders.filter(o => o.payment_status === 'unpaid' && o.payment_method === 'cash').length, // Only unpaid cash payments need verification
-        verified: orders.filter(o => 
-            o.payment_status === 'verified' || 
+        paid: orders.filter(o => o.payment_status === 'unpaid' && ['cash', 'qris', 'bank_transfer'].includes(o.payment_method)).length, // Manual payment methods need verification
+        verified: orders.filter(o =>
+            o.payment_status === 'verified' ||
             (o.payment_status === 'paid' && o.payment_method === 'midtrans') || // Midtrans paid = auto verified
-            (o.payment_status === 'paid' && o.payment_method === 'cash') // Cash paid = verified
+            (o.payment_status === 'paid' && ['cash', 'qris', 'bank_transfer'].includes(o.payment_method)) // Manual methods paid = verified
         ).length
     };
 
@@ -262,19 +400,9 @@ export default function AdminOrdersIndex({ orders = [] }) {
             <Head title="Kelola Pesanan" />
             
             {/* Header */}
-            <div className="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Kelola Pesanan</h1>
-                    <p className="text-gray-600">Kelola dan pantau semua pesanan pelanggan</p>
-                </div>
-                <button
-                    onClick={handleManualSync}
-                    disabled={isSyncing}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                    {isSyncing ? 'Syncing...' : 'Sync Midtrans'}
-                </button>
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Kelola Pesanan</h1>
+                <p className="text-gray-600">Kelola dan pantau semua pesanan pelanggan</p>
             </div>
 
             {/* Stats Cards */}
@@ -404,7 +532,7 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                {order.payment_method === 'cash' && order.payment_status !== 'paid' && (
+                                                {['cash', 'qris', 'bank_transfer'].includes(order.payment_method) && order.payment_status !== 'paid' && order.status !== 'cancelled' && (
                                                     <select
                                                         value={order.payment_status}
                                                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
@@ -488,7 +616,227 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                             <p className="text-gray-600">Email:</p>
                                             <p className="font-semibold">{selectedOrder.customer_email}</p>
                                         </div>
+                                        {selectedOrder.customer_phone && (
+                                            <div>
+                                                <p className="text-gray-600">Telepon:</p>
+                                                <p className="font-semibold">{selectedOrder.customer_phone}</p>
+                                            </div>
+                                        )}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Order Items */}
+                            {selectedOrder.items && selectedOrder.items.length > 0 && (
+                                <div className="mb-6">
+                                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                        <Package className="w-4 h-4" />
+                                        Item Pesanan
+                                    </h3>
+                                    <div className="bg-gray-50 rounded-lg overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-2 text-left text-gray-600">Produk</th>
+                                                    <th className="px-4 py-2 text-center text-gray-600">Qty</th>
+                                                    <th className="px-4 py-2 text-right text-gray-600">Harga</th>
+                                                    <th className="px-4 py-2 text-right text-gray-600">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selectedOrder.items.map((item, index) => (
+                                                    <tr key={index} className="border-t border-gray-200">
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                {item.product_image ? (
+                                                                    <img
+                                                                        src={item.product_image}
+                                                                        alt={item.product_name}
+                                                                        className="w-20 h-20 rounded-lg object-cover flex-shrink-0 border border-gray-200"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
+                                                                        <Package className="w-7 h-7 text-gray-400" />
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <p className="font-medium text-gray-900">{item.product_name}</p>
+                                                                    {item.variant_name && (
+                                                                        <p className="text-xs text-blue-600">{item.variant_name}</p>
+                                                                    )}
+                                                                    {item.booking_start_at && item.booking_end_at && (
+                                                                        <p className="text-xs text-emerald-600 mt-0.5">
+                                                                            {['private_office', 'virtual_office'].includes(item.product?.product_type) ? (
+                                                                                // Date-only booking: show date range
+                                                                                <>
+                                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                                </>
+                                                                            ) : (
+                                                                                // Hourly booking: show date + time range
+                                                                                <>
+                                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })},{' '}
+                                                                                    {new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                                                </>
+                                                                            )}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">{item.quantity}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            Rp{Number(item.price).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-semibold">
+                                                            Rp{Number(item.subtotal).toLocaleString('id-ID')}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot className="bg-blue-50">
+                                                <tr>
+                                                    <td colSpan="3" className="px-4 py-3 text-right font-semibold text-gray-700">
+                                                        Total:
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-bold text-blue-600">
+                                                        Rp{Number(selectedOrder.total).toLocaleString('id-ID')}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Invoice Actions */}
+                            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-blue-600" />
+                                    Invoice
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <button
+                                        onClick={() => setShowInvoiceModal(true)}
+                                        className="bg-white border border-blue-300 text-blue-600 py-2.5 px-4 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                        Lihat
+                                    </button>
+                                    <button
+                                        onClick={handlePrintInvoice}
+                                        className="bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Printer className="w-4 h-4" />
+                                        Cetak
+                                    </button>
+                                    <button
+                                        onClick={handleDownloadInvoice}
+                                        className="bg-purple-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Unduh PDF
+                                    </button>
+                                    <button
+                                        onClick={handleSendInvoiceEmail}
+                                        disabled={isSendingEmail}
+                                        className="bg-green-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSendingEmail ? (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                                Mengirim...
+                                            </>
+                                        ) : emailSent ? (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" />
+                                                Terkirim!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Mail className="w-4 h-4" />
+                                                Email
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Hidden Invoice Print Area */}
+                            <div id="invoice-print-area" className="hidden">
+                                <div className="invoice-header">
+                                    <img src="/images/kaspa-space-logo.png" alt="Kaspa Space" style={{height: '100px', marginBottom: '10px'}} />
+                                </div>
+                                <div className="invoice-info">
+                                    <div>
+                                        <h3>Informasi Pesanan</h3>
+                                        <p><strong>No. Invoice:</strong> {selectedOrder.order_number}</p>
+                                        <p><strong>Tanggal:</strong> {formatDate(selectedOrder.created_at)}</p>
+                                        <p><strong>Metode Pembayaran:</strong> {
+                                            selectedOrder.payment_method === 'cash' ? 'Tunai' :
+                                            selectedOrder.payment_method === 'qris' ? 'QRIS' :
+                                            selectedOrder.payment_method === 'bank_transfer' ? 'Transfer Bank' :
+                                            selectedOrder.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder.payment_method
+                                        }</p>
+                                        <p><strong>Status:</strong> <span className={`status-badge ${
+                                            selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified' ? 'status-paid' :
+                                            selectedOrder.status === 'cancelled' ? 'status-cancelled' : 'status-unpaid'
+                                        }`}>{
+                                            selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified' ? 'Lunas' :
+                                            selectedOrder.status === 'cancelled' ? 'Dibatalkan' : 'Menunggu Pembayaran'
+                                        }</span></p>
+                                    </div>
+                                    <div>
+                                        <h3>Informasi Pelanggan</h3>
+                                        <p><strong>Nama:</strong> {selectedOrder.customer_name}</p>
+                                        <p><strong>Email:</strong> {selectedOrder.customer_email}</p>
+                                        {selectedOrder.customer_phone && <p><strong>Telepon:</strong> {selectedOrder.customer_phone}</p>}
+                                    </div>
+                                </div>
+                                <table className="invoice-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Produk</th>
+                                            <th style={{textAlign: 'center'}}>Qty</th>
+                                            <th style={{textAlign: 'right'}}>Harga</th>
+                                            <th style={{textAlign: 'right'}}>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedOrder.items?.map((item, index) => (
+                                            <tr key={index}>
+                                                <td>
+                                                    {item.product_name}
+                                                    {item.variant_name && <br />}
+                                                    {item.variant_name && <small style={{color: '#3b82f6'}}>{item.variant_name}</small>}
+                                                    {item.booking_start_at && item.booking_end_at && (
+                                                        <>
+                                                            <br />
+                                                            <small style={{color: '#059669'}}>
+                                                                {['private_office', 'virtual_office'].includes(item.product?.product_type) ? (
+                                                                    `${new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - ${new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                                                ) : (
+                                                                    `${new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}, ${new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+                                                                )}
+                                                            </small>
+                                                        </>
+                                                    )}
+                                                </td>
+                                                <td style={{textAlign: 'center'}}>{item.quantity}</td>
+                                                <td style={{textAlign: 'right'}}>Rp{Number(item.price).toLocaleString('id-ID')}</td>
+                                                <td style={{textAlign: 'right'}}>Rp{Number(item.subtotal).toLocaleString('id-ID')}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <div className="invoice-total">
+                                    <div className="total-row grand-total">
+                                        <span className="total-label">TOTAL:</span>
+                                        <span className="total-value">Rp{Number(selectedOrder.total).toLocaleString('id-ID')}</span>
+                                    </div>
+                                </div>
+                                <div className="invoice-footer">
+                                    <p>Terima kasih telah berbelanja di Kaspa Space</p>
+                                    <p>Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
                                 </div>
                             </div>
 
@@ -513,37 +861,6 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                             </a>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Action Buttons - Only show for Cash payments that need verification */}
-                            {selectedOrder.payment_status === 'paid' && selectedOrder.payment_method === 'cash' && (
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleVerifyPayment(selectedOrder.id, 'verified')}
-                                        disabled={isProcessing}
-                                        className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                Memproses...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircle className="w-5 h-5" />
-                                                Verifikasi Pembayaran
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => handleVerifyPayment(selectedOrder.id, 'rejected')}
-                                        disabled={isProcessing}
-                                        className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        <XCircle className="w-5 h-5" />
-                                        Tolak Pembayaran
-                                    </button>
                                 </div>
                             )}
 
@@ -572,13 +889,16 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                 </div>
                             )}
 
-                            {selectedOrder.payment_status === 'pending' && (
+                            {(selectedOrder.payment_status === 'pending' || selectedOrder.payment_status === 'unpaid') && (
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
                                     <Clock className="w-6 h-6 text-yellow-600" />
                                     <div>
                                         <p className="font-semibold text-yellow-900">Menunggu Pembayaran</p>
                                         <p className="text-sm text-yellow-700">
-                                            Pelanggan belum melakukan pembayaran atau upload bukti pembayaran
+                                            {selectedOrder.payment_method === 'qris' && 'Pelanggan belum melakukan pembayaran via QRIS'}
+                                            {selectedOrder.payment_method === 'bank_transfer' && 'Pelanggan belum melakukan transfer bank'}
+                                            {selectedOrder.payment_method === 'cash' && 'Pelanggan belum melakukan pembayaran tunai'}
+                                            {selectedOrder.payment_method === 'midtrans' && 'Pelanggan belum menyelesaikan pembayaran Midtrans'}
                                         </p>
                                     </div>
                                 </div>
@@ -645,6 +965,156 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                         'Oke, Ubah Status'
                                     )}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Invoice Preview Modal */}
+            {showInvoiceModal && selectedOrder && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-blue-600" />
+                                Invoice #{selectedOrder.order_number}
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handlePrintInvoice}
+                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Cetak
+                                </button>
+                                <button
+                                    onClick={handleDownloadInvoice}
+                                    className="px-3 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Unduh PDF
+                                </button>
+                                <button
+                                    onClick={handleSendInvoiceEmail}
+                                    disabled={isSendingEmail}
+                                    className="px-3 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 text-sm"
+                                >
+                                    {isSendingEmail ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : emailSent ? (
+                                        <CheckCircle className="w-4 h-4" />
+                                    ) : (
+                                        <Send className="w-4 h-4" />
+                                    )}
+                                    {isSendingEmail ? 'Mengirim...' : emailSent ? 'Terkirim!' : 'Email'}
+                                </button>
+                                <button
+                                    onClick={() => setShowInvoiceModal(false)}
+                                    className="text-gray-400 hover:text-gray-600 text-2xl px-2"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Invoice Content */}
+                        <div className="p-8">
+                            {/* Invoice Header */}
+                            <div className="text-center mb-8 pb-6 border-b-2 border-blue-500">
+                                <img
+                                    src="/images/kaspa-space-logo.png"
+                                    alt="Kaspa Space"
+                                    className="h-24 mx-auto"
+                                />
+                            </div>
+
+                            {/* Invoice Info */}
+                            <div className="grid md:grid-cols-2 gap-8 mb-8">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">Informasi Pesanan</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <p><span className="text-gray-500">No. Invoice:</span> <span className="font-semibold">{selectedOrder.order_number}</span></p>
+                                        <p><span className="text-gray-500">Tanggal:</span> <span className="font-semibold">{formatDate(selectedOrder.created_at)}</span></p>
+                                        <p><span className="text-gray-500">Metode Pembayaran:</span> <span className="font-semibold">
+                                            {selectedOrder.payment_method === 'cash' ? 'Tunai' :
+                                             selectedOrder.payment_method === 'qris' ? 'QRIS' :
+                                             selectedOrder.payment_method === 'bank_transfer' ? 'Transfer Bank' :
+                                             selectedOrder.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder.payment_method}
+                                        </span></p>
+                                        <p><span className="text-gray-500">Status:</span> {getStatusBadge(selectedOrder.payment_status, selectedOrder.status)}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">Informasi Pelanggan</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <p><span className="text-gray-500">Nama:</span> <span className="font-semibold">{selectedOrder.customer_name}</span></p>
+                                        <p><span className="text-gray-500">Email:</span> <span className="font-semibold">{selectedOrder.customer_email}</span></p>
+                                        {selectedOrder.customer_phone && (
+                                            <p><span className="text-gray-500">Telepon:</span> <span className="font-semibold">{selectedOrder.customer_phone}</span></p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Invoice Items Table */}
+                            <div className="mb-8">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-blue-600 text-white">
+                                            <th className="px-4 py-3 text-left rounded-tl-lg">Produk</th>
+                                            <th className="px-4 py-3 text-center">Qty</th>
+                                            <th className="px-4 py-3 text-right">Harga</th>
+                                            <th className="px-4 py-3 text-right rounded-tr-lg">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedOrder.items?.map((item, index) => (
+                                            <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                                                <td className="px-4 py-4">
+                                                    <p className="font-medium text-gray-900">{item.product_name}</p>
+                                                    {item.variant_name && (
+                                                        <p className="text-sm text-blue-600">{item.variant_name}</p>
+                                                    )}
+                                                    {item.booking_start_at && item.booking_end_at && (
+                                                        <p className="text-sm text-emerald-600 mt-1">
+                                                            {['private_office', 'virtual_office'].includes(item.product?.product_type) ? (
+                                                                <>
+                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })},{' '}
+                                                                    {new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                                </>
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">{item.quantity}</td>
+                                                <td className="px-4 py-4 text-right">Rp{Number(item.price).toLocaleString('id-ID')}</td>
+                                                <td className="px-4 py-4 text-right font-semibold">Rp{Number(item.subtotal).toLocaleString('id-ID')}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Invoice Total */}
+                            <div className="flex justify-end mb-8">
+                                <div className="w-64">
+                                    <div className="flex justify-between py-3 border-t-2 border-blue-500">
+                                        <span className="text-lg font-bold text-gray-900">TOTAL</span>
+                                        <span className="text-xl font-bold text-blue-600">Rp{Number(selectedOrder.total).toLocaleString('id-ID')}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Invoice Footer */}
+                            <div className="text-center pt-6 border-t border-gray-200">
+                                <p className="text-gray-600">Terima kasih telah berbelanja di Kaspa Space</p>
+                                <p className="text-gray-400 text-sm mt-1">Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
                             </div>
                         </div>
                     </div>

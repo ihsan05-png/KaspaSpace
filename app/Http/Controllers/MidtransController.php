@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Midtrans\Config;
 use Midtrans\Snap;
 use Midtrans\Notification;
@@ -139,6 +140,8 @@ class MidtransController extends Controller
             ]);
 
             // Handle different transaction status
+            $previousStatus = $order->payment_status;
+
             if ($transactionStatus == 'capture') {
                 if ($fraudStatus == 'accept') {
                     // Payment success - paid = verified for Midtrans
@@ -162,6 +165,11 @@ class MidtransController extends Controller
             }
 
             $order->save();
+
+            // Reduce stock when payment becomes paid
+            if ($previousStatus !== 'paid' && $order->payment_status === 'paid') {
+                $this->reduceStockForOrder($order);
+            }
 
             Log::info('Order status updated', [
                 'order_id' => $order->id,
@@ -237,6 +245,11 @@ class MidtransController extends Controller
                         'old_status' => $oldStatus,
                         'new_status' => $order->payment_status,
                     ]);
+
+                    // Reduce stock when payment becomes paid
+                    if ($oldStatus !== 'paid' && $order->payment_status === 'paid') {
+                        $this->reduceStockForOrder($order);
+                    }
                 }
 
             } catch (\Exception $e) {
@@ -262,5 +275,59 @@ class MidtransController extends Controller
                 'error' => 'Gagal memeriksa status: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Reduce stock for order items when payment is confirmed
+     */
+    protected function reduceStockForOrder(Order $order)
+    {
+        DB::transaction(function () use ($order) {
+            $order->load('items.productVariant', 'items.product');
+
+            foreach ($order->items as $item) {
+                if ($item->variant_id && !$item->stock_reduced) {
+                    $variant = $item->productVariant;
+                    $isBookingProduct = $item->product &&
+                        in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+
+                    if ($isBookingProduct) {
+                        // Booking products: booking times were already set during checkout.
+                        // Just mark as stock_reduced so availability queries count this booking.
+                        $item->update(['stock_reduced' => true]);
+
+                        Log::info('Booking confirmed for order item (no global stock change)', [
+                            'order_id' => $order->id,
+                            'variant_id' => $item->variant_id,
+                            'quantity' => $item->quantity,
+                            'booking_start_at' => $item->booking_start_at,
+                            'booking_end_at' => $item->booking_end_at,
+                        ]);
+                    } elseif ($variant) {
+                        // Non-booking products: use global stock
+                        $variant->decrementStock($item->quantity);
+
+                        $bookingStart = now();
+                        $bookingEnd = null;
+                        if ($variant->duration_hours) {
+                            $bookingEnd = $bookingStart->copy()->addHours($variant->duration_hours);
+                        }
+
+                        $item->update([
+                            'booking_start_at' => $bookingStart,
+                            'booking_end_at' => $bookingEnd,
+                            'stock_reduced' => true,
+                        ]);
+
+                        Log::info('Stock reduced for order item', [
+                            'order_id' => $order->id,
+                            'variant_id' => $variant->id,
+                            'quantity' => $item->quantity,
+                            'booking_end_at' => $bookingEnd,
+                        ]);
+                    }
+                }
+            }
+        });
     }
 }

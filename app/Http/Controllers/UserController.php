@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\NewsletterSubscriber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
@@ -15,9 +16,11 @@ class UserController extends Controller
     public function index()
     {
         $users = User::orderBy('created_at', 'desc')->get();
-        
+        $guestSubscribers = NewsletterSubscriber::active()->get();
+
         return Inertia::render('admin/Users/Index', [
-            'users' => $users
+            'users' => $users,
+            'guestSubscribers' => $guestSubscribers
         ]);
     }
 
@@ -37,6 +40,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email|max:255',
+            'phone' => 'nullable|string|max:20',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:admin,user'
         ]);
@@ -44,6 +48,7 @@ class UserController extends Controller
         User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
             'password' => Hash::make($validated['password']),
             'role' => $validated['role']
         ]);
@@ -70,6 +75,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'phone' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:8|confirmed',
             'role' => 'required|in:admin,user'
         ]);
@@ -77,6 +83,7 @@ class UserController extends Controller
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
             'role' => $validated['role']
         ]);
 

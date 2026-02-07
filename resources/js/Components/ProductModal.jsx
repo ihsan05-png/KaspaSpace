@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { X } from 'lucide-react';
 import { IMAGE_PLACEHOLDER } from '@/utils/placeholders';
+import BookingDateTimePicker from '@/Components/BookingDateTimePicker';
 
 export default function ProductModal({ product, isOpen, onClose, onAddToCart }) {
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [quantity, setQuantity] = useState(1);
     const [customOptions, setCustomOptions] = useState({});
+    const [bookingData, setBookingData] = useState({ date: null, startTime: null, endTime: null });
 
     // Reset state when modal opens with new product
     useEffect(() => {
@@ -15,11 +17,13 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             setSelectedVariant(null);
             setQuantity(1);
             setCustomOptions({});
+            setBookingData({ date: null, startTime: null, endTime: null });
             
             // Auto-select first active variant if available
             if (product.variants && product.variants.length > 0) {
-                const firstActiveVariant = product.variants.find(v => 
-                    v.is_active && (!v.manage_stock || v.stock_quantity > 0)
+                const isBooking = ['share_desk', 'private_room', 'private_office', 'virtual_office'].includes(product.product_type);
+                const firstActiveVariant = product.variants.find(v =>
+                    v.is_active && (isBooking || !v.manage_stock || v.stock_quantity > 0)
                 );
                 if (firstActiveVariant) {
                     setSelectedVariant(firstActiveVariant);
@@ -29,6 +33,13 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
     }, [isOpen, product]);
 
     if (!isOpen || !product) return null;
+
+    // Hourly booking: share_desk, private_room (need date + time)
+    const isHourlyBooking = ['share_desk', 'private_room'].includes(product.product_type);
+    // Date-only booking: private_office, virtual_office (need date only, monthly/yearly packages)
+    const isDateOnlyBooking = ['private_office', 'virtual_office'].includes(product.product_type);
+    // Combined for stock check purposes
+    const isCoworkingBooking = isHourlyBooking || isDateOnlyBooking;
 
     // Debug: Log product data
     console.log('Product data:', product);
@@ -75,14 +86,27 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             return;
         }
 
+        if (isHourlyBooking && (!bookingData.date || !bookingData.startTime)) {
+            alert('Silakan pilih tanggal dan waktu booking');
+            return;
+        }
+
+        if (isDateOnlyBooking && !bookingData.date) {
+            alert('Silakan pilih tanggal mulai sewa');
+            return;
+        }
+
         const data = {
             product_id: product.id,
             product_name: product.title,
+            product_type: product.product_type || null,
             variant_id: selectedVariant.id,
             variant_name: selectedVariant.name,
             custom_options: customOptions,
             quantity: quantity,
             price: selectedVariant.price,
+            booking_date: bookingData.date || null,
+            booking_start_time: bookingData.startTime || null,
         };
 
         router.post('/cart/add', data, {
@@ -192,61 +216,72 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                             {/* Variants */}
                             {product.variants && Array.isArray(product.variants) && product.variants.length > 0 ? (
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                                        Pilih Paket <span className="text-red-500">*</span>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Paket
                                     </label>
-                                    <div className="space-y-2">
+                                    <select
+                                        value={selectedVariant?.id || ''}
+                                        onChange={(e) => {
+                                            const variant = product.variants.find(v => v.id === parseInt(e.target.value));
+                                            if (variant) handleVariantChange(variant);
+                                        }}
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-700 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition cursor-pointer"
+                                    >
                                         {product.variants.map((variant) => {
-                                            const isDisabled = !variant.is_active || (variant.manage_stock && variant.stock_quantity <= 0);
-                                            const isSelected = selectedVariant?.id === variant.id;
-                                            
+                                            const isDisabled = !variant.is_active || (!isCoworkingBooking && variant.manage_stock && variant.stock_quantity <= 0);
+
                                             return (
-                                                <button
+                                                <option
                                                     key={variant.id}
-                                                    onClick={() => !isDisabled && handleVariantChange(variant)}
+                                                    value={variant.id}
                                                     disabled={isDisabled}
-                                                    className={`w-full text-left border-2 rounded-lg p-4 transition-all ${
-                                                        isSelected
-                                                            ? 'border-blue-600 bg-blue-50 shadow-md'
-                                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                                                    } ${
-                                                        isDisabled
-                                                            ? 'opacity-50 cursor-not-allowed'
-                                                            : 'cursor-pointer'
-                                                    }`}
                                                 >
-                                                    <div className="flex justify-between items-center">
-                                                        <div className="flex-1">
-                                                            <p className="font-semibold text-gray-800">{variant.name}</p>
-                                                            {variant.description && (
-                                                                <p className="text-xs text-gray-500 mt-1">{variant.description}</p>
-                                                            )}
-                                                            {variant.manage_stock && (
-                                                                <p className="text-xs text-gray-500 mt-1">
-                                                                    Stok: {variant.stock_quantity}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right ml-4">
-                                                            <p className="font-bold text-blue-900">
-                                                                Rp{Number(variant.price).toLocaleString('id-ID')}
-                                                            </p>
-                                                            {variant.compare_price && variant.compare_price > variant.price && (
-                                                                <p className="text-xs text-gray-500 line-through">
-                                                                    Rp{Number(variant.compare_price).toLocaleString('id-ID')}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </button>
+                                                    {variant.name}
+                                                </option>
                                             );
                                         })}
-                                    </div>
+                                    </select>
+
+                                    {/* Show selected variant details */}
+                                    {selectedVariant && (
+                                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="font-medium text-gray-800">{selectedVariant.name}</p>
+                                                    {selectedVariant.manage_stock && !isCoworkingBooking && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Stok: {selectedVariant.stock_quantity}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-blue-900">
+                                                        Rp{Number(selectedVariant.price).toLocaleString('id-ID')}
+                                                    </p>
+                                                    {selectedVariant.compare_price && selectedVariant.compare_price > selectedVariant.price && (
+                                                        <p className="text-xs text-gray-500 line-through">
+                                                            Rp{Number(selectedVariant.compare_price).toLocaleString('id-ID')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600">⚠️ Tidak ada paket tersedia untuk produk ini</p>
+                                    <p className="text-sm text-gray-600">Tidak ada paket tersedia untuk produk ini</p>
                                 </div>
+                            )}
+
+                            {/* Booking Date/Time Picker for coworking products */}
+                            {isCoworkingBooking && selectedVariant && (
+                                <BookingDateTimePicker
+                                    productId={product.id}
+                                    selectedVariant={selectedVariant}
+                                    onBookingChange={setBookingData}
+                                    dateOnly={isDateOnlyBooking}
+                                />
                             )}
 
                             {/* Custom Options */}
@@ -338,10 +373,20 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                             {/* Add to Cart Button */}
                             <button
                                 onClick={handleAddToCart}
-                                disabled={!selectedVariant}
+                                disabled={
+                                    !selectedVariant ||
+                                    (isHourlyBooking && (!bookingData.date || !bookingData.startTime)) ||
+                                    (isDateOnlyBooking && !bookingData.date)
+                                }
                                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
                             >
-                                {selectedVariant ? 'Tambah ke Keranjang' : 'Pilih Paket Terlebih Dahulu'}
+                                {!selectedVariant
+                                    ? 'Pilih Paket Terlebih Dahulu'
+                                    : isHourlyBooking && (!bookingData.date || !bookingData.startTime)
+                                        ? 'Pilih Tanggal & Waktu Booking'
+                                        : isDateOnlyBooking && !bookingData.date
+                                            ? 'Pilih Tanggal Mulai Sewa'
+                                            : 'Tambah ke Keranjang'}
                             </button>
                         </div>
                     </div>

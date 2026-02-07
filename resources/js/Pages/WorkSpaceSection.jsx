@@ -5,7 +5,7 @@ import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
 import ProductModal from "@/Components/ProductModal";
 import CartDrawer from "@/Components/CartDrawer";
-import GoogleSheetsScheduleSection from "./SectionWorkSpace/GoogleSheetsScheduleSection";
+import RoomAvailabilitySchedule from "@/Components/RoomAvailabilitySchedule";
 import { IMAGE_PLACEHOLDER } from "@/utils/placeholders";
 
 const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) => {
@@ -175,8 +175,11 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                                     key={product.id}
                                     className="bg-white border border-gray-200 rounded-2xl shadow-md hover:shadow-xl transform hover:-translate-y-2 transition-all duration-300 overflow-hidden group"
                                 >
-                                    {/* Product Image */}
-                                    <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-gray-50">
+                                    {/* Product Image - Link to detail page */}
+                                    <Link
+                                        href={`/product/${product.slug}`}
+                                        className="block relative overflow-hidden bg-gradient-to-br from-blue-50 to-gray-50 cursor-pointer"
+                                    >
                                         <img
                                             src={
                                                 product.images &&
@@ -190,7 +193,7 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                                                 e.target.src = IMAGE_PLACEHOLDER;
                                             }}
                                         />
-                                        
+
                                         {/* Overlay gradient */}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
@@ -207,13 +210,18 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                                                 {product.category.name}
                                             </div>
                                         )}
-                                    </div>
+                                    </Link>
 
                                     {/* Product Info */}
                                     <div className="p-5">
-                                        <h3 className="font-bold text-slate-800 mb-2 line-clamp-2 text-base leading-tight min-h-[48px] group-hover:text-blue-600 transition-colors">
-                                            {product.title}
-                                        </h3>
+                                        <Link
+                                            href={`/product/${product.slug}`}
+                                            className="block"
+                                        >
+                                            <h3 className="font-bold text-slate-800 mb-2 line-clamp-2 text-base leading-tight min-h-[48px] group-hover:text-blue-600 transition-colors cursor-pointer">
+                                                {product.title}
+                                            </h3>
+                                        </Link>
 
                                         {/* Subtitle */}
                                         {product.subtitle && (
@@ -231,7 +239,7 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                                                 <span className="text-xl font-bold text-blue-900">
                                                     Rp{" "}
                                                     {Number(
-                                                        product.base_price
+                                                        product.min_price || product.base_price
                                                     ).toLocaleString("id-ID")}
                                                 </span>
                                             </div>
@@ -304,7 +312,7 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                 </div>
             </div>
 
-            {/* Schedule Section */}
+            {/* Schedule Section - Real-time from Database */}
             <div id="schedule" className="bg-gradient-to-b from-gray-50 to-white py-16">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="max-w-6xl mx-auto">
@@ -318,31 +326,11 @@ const WorkspaceSection = ({ products = [], currentCategory, categories = [] }) =
                             </p>
                         </div>
 
-                        {/* Schedule Iframe */}
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                            <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
-                                <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                    </svg>
-                                    Jadwal Sewa Ruangan
-                                </h3>
-                            </div>
-                            <div className="relative">
-                                <iframe
-                                    className="w-full h-[600px] border-0"
-                                    src="https://docs.google.com/spreadsheets/d/e/2PACX-1vSi4CNuxtDmtyXyIYCEEyToK9oTTYygNf7KnU1JdvqoNkjBCkWtTv8Rtgr8-_-g3WUamRjmTNQxDEQS/pubhtml?widget=true&amp;headers=false"
-                                    title="Jadwal Sewa Ruangan"
-                                    loading="lazy"
-                                ></iframe>
-                            </div>
-                        </div>
+                        {/* Real-time Room Availability Schedule */}
+                        <RoomAvailabilitySchedule />
                     </div>
                 </div>
             </div>
-
-            {/* Additional Schedule Component */}
-            <GoogleSheetsScheduleSection />
 
             {/* Product Modal */}
             <ProductModal

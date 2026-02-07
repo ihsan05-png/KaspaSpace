@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, ShoppingBag, ArrowLeft, CreditCard, RefreshCw, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { CheckCircle, ShoppingBag, ArrowLeft, CreditCard, RefreshCw, XCircle, Clock, AlertTriangle, QrCode, Building2, Copy, Check } from 'lucide-react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
 
-export default function Payment({ order }) {
+export default function Payment({ order, paymentSettings = null }) {
     const [isLoadingPayment, setIsLoadingPayment] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [paymentStatus, setPaymentStatus] = useState(order.payment_status);
@@ -11,10 +11,22 @@ export default function Payment({ order }) {
     const [timeRemaining, setTimeRemaining] = useState('');
     const [isExpired, setIsExpired] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    // Helper to check if payment is successful (paid or verified)
+    const isPaymentSuccessful = (status) => ['paid', 'verified'].includes(status);
+
+    const handleCopyAccountNumber = () => {
+        if (paymentSettings?.account_number) {
+            navigator.clipboard.writeText(paymentSettings.account_number);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     // Save order to localStorage for later access
     useEffect(() => {
-        if (paymentStatus === 'unpaid' && orderStatus !== 'cancelled') {
+        if (!isPaymentSuccessful(paymentStatus) && paymentStatus !== 'refunded' && orderStatus !== 'cancelled') {
             const orderData = {
                 id: order.id,
                 order_number: order.order_number,
@@ -86,7 +98,7 @@ export default function Payment({ order }) {
 
     // Check payment status periodically for both payment methods
     useEffect(() => {
-        if (paymentStatus === 'unpaid' && orderStatus !== 'cancelled') {
+        if (!isPaymentSuccessful(paymentStatus) && paymentStatus !== 'refunded' && orderStatus !== 'cancelled') {
             const interval = setInterval(() => {
                 checkPaymentStatus();
             }, 5000); // Check every 5 seconds
@@ -103,23 +115,23 @@ export default function Payment({ order }) {
                 if (response.data.payment_status !== paymentStatus) {
                     setPaymentStatus(response.data.payment_status);
                     setOrderStatus(response.data.status);
-                    
+
                     // Redirect to success page if payment is successful
-                    if (response.data.payment_status === 'paid') {
+                    if (isPaymentSuccessful(response.data.payment_status)) {
                         setTimeout(() => {
                             window.location.href = `/checkout/success/${order.id}`;
                         }, 1000);
                     }
                 }
             } else {
-                // For cash, check order status directly from database
+                // For cash, qris, and bank_transfer, check order status directly from database
                 const response = await axios.get(`/api/orders/${order.id}/status`);
                 if (response.data.payment_status !== paymentStatus) {
                     setPaymentStatus(response.data.payment_status);
                     setOrderStatus(response.data.status);
-                    
+
                     // Redirect to success page if payment is successful
-                    if (response.data.payment_status === 'paid') {
+                    if (isPaymentSuccessful(response.data.payment_status)) {
                         setTimeout(() => {
                             window.location.href = `/checkout/success/${order.id}`;
                         }, 1000);
@@ -257,7 +269,7 @@ export default function Payment({ order }) {
             )}
 
             <div className="max-w-3xl mx-auto px-4">
-                {/* Success Banner or Cancelled Banner */}
+                {/* Success Banner, Cancelled Banner, or Waiting Payment Banner */}
                 {orderStatus === 'cancelled' ? (
                     <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-6">
                         <div className="flex items-start gap-4">
@@ -270,6 +282,22 @@ export default function Payment({ order }) {
                                 </h1>
                                 <p className="text-red-700">
                                     Pesanan ini telah dibatalkan. Silakan buat pesanan baru jika Anda masih membutuhkan.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                ) : isPaymentSuccessful(paymentStatus) ? (
+                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-6">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <CheckCircle className="w-7 h-7 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h1 className="text-2xl font-bold text-green-900 mb-2">
+                                    Pembayaran Berhasil
+                                </h1>
+                                <p className="text-green-700">
+                                    Pembayaran untuk pesanan #{order.order_number || order.id} telah dikonfirmasi. Terima kasih atas pesanan Anda!
                                 </p>
                             </div>
                         </div>
@@ -330,12 +358,15 @@ export default function Payment({ order }) {
                         <div className="flex justify-between py-2 border-b">
                             <span className="text-gray-600">Metode Pembayaran</span>
                             <span className="font-semibold text-gray-900">
-                                {order.payment_method === 'midtrans' ? 'Midtrans (Online Payment)' : 'Tunai'}
+                                {order.payment_method === 'midtrans' && 'Midtrans (Online Payment)'}
+                                {order.payment_method === 'qris' && 'QRIS'}
+                                {order.payment_method === 'bank_transfer' && 'Transfer Bank'}
+                                {order.payment_method === 'cash' && 'Tunai'}
                             </span>
                         </div>
                         <div className="flex justify-between py-2">
                             <span className="text-gray-600">Status Pembayaran</span>
-                            {paymentStatus === 'paid' ? (
+                            {isPaymentSuccessful(paymentStatus) ? (
                                 <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold flex items-center gap-1">
                                     <CheckCircle className="w-4 h-4" />
                                     Sudah Dibayar
@@ -363,6 +394,22 @@ export default function Payment({ order }) {
                                         <p className="font-semibold text-gray-900">{item.product_name}</p>
                                         {item.variant_name && (
                                             <p className="text-sm text-blue-600">{item.variant_name}</p>
+                                        )}
+                                        {item.booking_start_at && item.booking_end_at && (
+                                            <p className="text-sm text-emerald-600">
+                                                {['private_office', 'virtual_office'].includes(item.product?.product_type) ? (
+                                                    // Date-only booking: show date range
+                                                    <>
+                                                        {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    </>
+                                                ) : (
+                                                    // Hourly booking: show date + time range
+                                                    <>
+                                                        {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })},{' '}
+                                                        {new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                    </>
+                                                )}
+                                            </p>
                                         )}
                                         <p className="text-sm text-gray-500">
                                             {item.quantity} x Rp{Number(item.price).toLocaleString('id-ID')}
@@ -450,7 +497,7 @@ export default function Payment({ order }) {
                     </div>
                 )}
 
-                {order.payment_method === 'midtrans' && paymentStatus === 'paid' && (
+                {order.payment_method === 'midtrans' && isPaymentSuccessful(paymentStatus) && (
                     <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-4">
                         <div className="flex items-center justify-center gap-3">
                             <CheckCircle className="w-8 h-8 text-green-600" />
@@ -464,7 +511,7 @@ export default function Payment({ order }) {
 
                 {order.payment_method === 'cash' && (
                     <div className="space-y-4">
-                        {paymentStatus === 'paid' ? (
+                        {isPaymentSuccessful(paymentStatus) ? (
                             <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
                                 <div className="flex items-center justify-center gap-3">
                                     <CheckCircle className="w-8 h-8 text-green-600" />
@@ -512,6 +559,252 @@ export default function Payment({ order }) {
                                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                             <p className="text-blue-800 text-sm text-center">
                                                 💡 Pesanan akan dikonfirmasi setelah pembayaran tunai diterima
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
+                                        <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                                        <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <a
+                                            href="/"
+                                            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                                        >
+                                            Buat Pesanan Baru
+                                        </a>
+                                    </div>
+                                )}
+                            </>
+                        ) : null}
+                    </div>
+                )}
+
+                {/* QRIS Payment */}
+                {order.payment_method === 'qris' && (
+                    <div className="space-y-4">
+                        {isPaymentSuccessful(paymentStatus) ? (
+                            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                                <div className="flex items-center justify-center gap-3">
+                                    <CheckCircle className="w-8 h-8 text-green-600" />
+                                    <div className="text-center">
+                                        <p className="text-green-900 font-bold text-lg">Pembayaran Berhasil!</p>
+                                        <p className="text-green-700 text-sm">Pesanan Anda sudah dibayar via QRIS</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : paymentStatus === 'unpaid' && orderStatus !== 'cancelled' ? (
+                            <>
+                                {!isExpired ? (
+                                    <>
+                                        <div className="bg-white border-2 border-purple-200 rounded-xl p-6 shadow-lg">
+                                            <div className="text-center mb-6">
+                                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <QrCode className="w-8 h-8 text-white" />
+                                                </div>
+                                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Pembayaran QRIS</h3>
+                                                <p className="text-gray-600">
+                                                    Scan QR Code di bawah untuk membayar
+                                                </p>
+                                            </div>
+
+                                            {paymentSettings?.qris_image ? (
+                                                <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                                                    <img
+                                                        src={paymentSettings.qris_image}
+                                                        alt="QRIS Code"
+                                                        className="max-w-xs mx-auto rounded-lg"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="bg-gray-100 rounded-xl p-8 mb-6 text-center">
+                                                    <p className="text-gray-500">QR Code tidak tersedia</p>
+                                                </div>
+                                            )}
+
+                                            <div className="bg-purple-50 rounded-lg p-4 mb-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-600">Total Pembayaran</span>
+                                                    <span className="text-2xl font-bold text-purple-600">
+                                                        Rp{Number(order.total).toLocaleString('id-ID')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-sm text-gray-600 space-y-2">
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-purple-500">1.</span>
+                                                    Buka aplikasi e-wallet atau mobile banking Anda
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-purple-500">2.</span>
+                                                    Pilih menu Scan QR / QRIS
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-purple-500">3.</span>
+                                                    Scan QR Code di atas dan masukkan nominal pembayaran
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-purple-500">4.</span>
+                                                    Konfirmasi pembayaran
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowCancelModal(true)}
+                                            disabled={isCancelling}
+                                            className="w-full bg-white border-2 border-red-500 text-red-600 py-3 rounded-xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isCancelling ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    Membatalkan...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="w-5 h-5" />
+                                                    Batalkan Pesanan
+                                                </>
+                                            )}
+                                        </button>
+                                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                                            <p className="text-purple-800 text-sm text-center">
+                                                💡 Setelah pembayaran berhasil, admin akan mengkonfirmasi pesanan Anda
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
+                                        <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                                        <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <a
+                                            href="/"
+                                            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                                        >
+                                            Buat Pesanan Baru
+                                        </a>
+                                    </div>
+                                )}
+                            </>
+                        ) : null}
+                    </div>
+                )}
+
+                {/* Bank Transfer Payment */}
+                {order.payment_method === 'bank_transfer' && (
+                    <div className="space-y-4">
+                        {isPaymentSuccessful(paymentStatus) ? (
+                            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                                <div className="flex items-center justify-center gap-3">
+                                    <CheckCircle className="w-8 h-8 text-green-600" />
+                                    <div className="text-center">
+                                        <p className="text-green-900 font-bold text-lg">Pembayaran Berhasil!</p>
+                                        <p className="text-green-700 text-sm">Pesanan Anda sudah dibayar via Transfer Bank</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : paymentStatus === 'unpaid' && orderStatus !== 'cancelled' ? (
+                            <>
+                                {!isExpired ? (
+                                    <>
+                                        <div className="bg-white border-2 border-orange-200 rounded-xl p-6 shadow-lg">
+                                            <div className="text-center mb-6">
+                                                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Building2 className="w-8 h-8 text-white" />
+                                                </div>
+                                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Transfer Bank</h3>
+                                                <p className="text-gray-600">
+                                                    Transfer ke rekening di bawah ini
+                                                </p>
+                                            </div>
+
+                                            {paymentSettings?.bank_name && paymentSettings?.account_number ? (
+                                                <div className="space-y-4 mb-6">
+                                                    <div className="bg-orange-50 rounded-xl p-4">
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-gray-600">Bank</span>
+                                                                <span className="font-bold text-gray-900">{paymentSettings.bank_name}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-gray-600">Nomor Rekening</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-gray-900 font-mono">{paymentSettings.account_number}</span>
+                                                                    <button
+                                                                        onClick={handleCopyAccountNumber}
+                                                                        className="p-1.5 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors"
+                                                                        title="Salin nomor rekening"
+                                                                    >
+                                                                        {copied ? (
+                                                                            <Check className="w-4 h-4 text-green-600" />
+                                                                        ) : (
+                                                                            <Copy className="w-4 h-4 text-orange-600" />
+                                                                        )}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-gray-600">Atas Nama</span>
+                                                                <span className="font-bold text-gray-900">{paymentSettings.account_name}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-gray-100 rounded-xl p-8 mb-6 text-center">
+                                                    <p className="text-gray-500">Informasi rekening tidak tersedia</p>
+                                                </div>
+                                            )}
+
+                                            <div className="bg-orange-50 rounded-lg p-4 mb-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-600">Total Pembayaran</span>
+                                                    <span className="text-2xl font-bold text-orange-600">
+                                                        Rp{Number(order.total).toLocaleString('id-ID')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-sm text-gray-600 space-y-2">
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-orange-500">1.</span>
+                                                    Transfer sesuai nominal di atas ke rekening yang tertera
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-orange-500">2.</span>
+                                                    Pastikan nominal transfer sudah benar
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-orange-500">3.</span>
+                                                    Simpan bukti transfer untuk konfirmasi
+                                                </p>
+                                                <p className="flex items-start gap-2">
+                                                    <span className="text-orange-500">4.</span>
+                                                    Admin akan mengkonfirmasi pembayaran Anda
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowCancelModal(true)}
+                                            disabled={isCancelling}
+                                            className="w-full bg-white border-2 border-red-500 text-red-600 py-3 rounded-xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isCancelling ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    Membatalkan...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="w-5 h-5" />
+                                                    Batalkan Pesanan
+                                                </>
+                                            )}
+                                        </button>
+                                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                                            <p className="text-orange-800 text-sm text-center">
+                                                💡 Setelah transfer, admin akan mengkonfirmasi pembayaran Anda
                                             </p>
                                         </div>
                                     </>

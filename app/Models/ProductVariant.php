@@ -16,6 +16,7 @@ class ProductVariant extends Model
         'price',
         'compare_price',
         'stock_quantity',
+        'duration_hours',
         'manage_stock',
         'attributes',
         'image',
@@ -30,6 +31,7 @@ class ProductVariant extends Model
         'price' => 'decimal:2',
         'compare_price' => 'decimal:2',
         'sort_order' => 'integer',
+        'duration_hours' => 'float',
     ];
 
     protected static function boot()
@@ -71,6 +73,47 @@ class ProductVariant extends Model
         return !$this->manage_stock || $this->stock_quantity > 0;
     }
 
+    /**
+     * Check if variant has enough stock for the requested quantity
+     */
+    public function hasEnoughStock($quantity)
+    {
+        if (!$this->manage_stock) {
+            return true;
+        }
+        return $this->stock_quantity >= $quantity;
+    }
+
+    /**
+     * Decrement stock quantity
+     */
+    public function decrementStock($quantity)
+    {
+        if (!$this->manage_stock) {
+            return true;
+        }
+
+        if ($this->stock_quantity < $quantity) {
+            return false;
+        }
+
+        $this->decrement('stock_quantity', $quantity);
+        return true;
+    }
+
+    /**
+     * Increment stock quantity (restore stock)
+     */
+    public function incrementStock($quantity)
+    {
+        if (!$this->manage_stock) {
+            return true;
+        }
+
+        $this->increment('stock_quantity', $quantity);
+        return true;
+    }
+
     public function hasDiscount()
     {
         return $this->compare_price && $this->compare_price > $this->price;
@@ -85,8 +128,4 @@ class ProductVariant extends Model
         return round((($this->compare_price - $this->price) / $this->compare_price) * 100);
     }
 
-    public function getAttribute($key)
-    {
-        return $this->attributes[$key] ?? null;
-    }
 }
