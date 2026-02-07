@@ -54,6 +54,19 @@ class RoomScheduleController extends Controller
                 $privateRoomBooked = $privateRoomBooking !== null;
             }
 
+            // Check if any Share Desk is booked (blocks private room)
+            $shareDeskBooked = false;
+            $shareDeskBooking = null;
+            $bookedDesks = 0;
+
+            if ($shareDesk) {
+                $bookedDesks = $this->getBookedCount($shareDesk->id, $dateStr);
+                $shareDeskBooked = $bookedDesks > 0;
+                if ($shareDeskBooked) {
+                    $shareDeskBooking = $this->getActiveBooking($shareDesk->id, null, $dateStr);
+                }
+            }
+
             // Share Desk - stock from database
             if ($shareDesk) {
                 $totalDesks = $this->getTotalStockFromDatabase($shareDesk);
@@ -61,7 +74,7 @@ class RoomScheduleController extends Controller
                 if ($privateRoomBooked) {
                     // All desks blocked when private room is booked
                     $meetingRoomItems[] = [
-                        'sub_type' => $shareDesk->title, // From database
+                        'sub_type' => $shareDesk->title,
                         'capacity' => "0/{$totalDesks} meja",
                         'occupancy' => 'FULL',
                         'inv' => $privateRoomBooking->order->order_number ?? '-',
@@ -69,34 +82,35 @@ class RoomScheduleController extends Controller
                         'check_out' => $privateRoomBooking->booking_end_at ? Carbon::parse($privateRoomBooking->booking_end_at)->format('g:iA') : '',
                     ];
                 } else {
-                    $bookedDesks = $this->getBookedCount($shareDesk->id, $dateStr);
                     $availableDesks = max(0, $totalDesks - $bookedDesks);
-                    $booking = $bookedDesks > 0 ? $this->getActiveBooking($shareDesk->id, null, $dateStr) : null;
 
                     $meetingRoomItems[] = [
-                        'sub_type' => $shareDesk->title, // From database
+                        'sub_type' => $shareDesk->title,
                         'capacity' => "{$availableDesks}/{$totalDesks} meja",
                         'occupancy' => $availableDesks > 0 ? 'AVAILABLE' : 'FULL',
-                        'inv' => $booking ? ($booking->order->order_number ?? '-') : '-',
-                        'check_in' => $booking && $booking->booking_start_at ? Carbon::parse($booking->booking_start_at)->format('g:iA') : '',
-                        'check_out' => $booking && $booking->booking_end_at ? Carbon::parse($booking->booking_end_at)->format('g:iA') : '',
+                        'inv' => $shareDeskBooking ? ($shareDeskBooking->order->order_number ?? '-') : '-',
+                        'check_in' => $shareDeskBooking && $shareDeskBooking->booking_start_at ? Carbon::parse($shareDeskBooking->booking_start_at)->format('g:iA') : '',
+                        'check_out' => $shareDeskBooking && $shareDeskBooking->booking_end_at ? Carbon::parse($shareDeskBooking->booking_end_at)->format('g:iA') : '',
                     ];
                 }
             }
 
             // Private Room - stock from database
+            // FULL if private room is booked OR if any share desk is booked (same physical room)
             if ($privateRoom) {
                 $totalPrivateRooms = $this->getTotalStockFromDatabase($privateRoom);
-                $bookedPrivateRooms = $privateRoomBooked ? 1 : 0;
-                $availablePrivateRooms = max(0, $totalPrivateRooms - $bookedPrivateRooms);
+                $roomBlocked = $privateRoomBooked || $shareDeskBooked;
+
+                // Determine which booking to show info from
+                $displayBooking = $privateRoomBooking ?? $shareDeskBooking;
 
                 $meetingRoomItems[] = [
-                    'sub_type' => $privateRoom->title, // From database
-                    'capacity' => "{$availablePrivateRooms}/{$totalPrivateRooms} ruangan",
-                    'occupancy' => $privateRoomBooked ? 'FULL' : 'AVAILABLE',
-                    'inv' => $privateRoomBooking ? ($privateRoomBooking->order->order_number ?? '-') : '-',
-                    'check_in' => $privateRoomBooking && $privateRoomBooking->booking_start_at ? Carbon::parse($privateRoomBooking->booking_start_at)->format('g:iA') : '',
-                    'check_out' => $privateRoomBooking && $privateRoomBooking->booking_end_at ? Carbon::parse($privateRoomBooking->booking_end_at)->format('g:iA') : '',
+                    'sub_type' => $privateRoom->title,
+                    'capacity' => $roomBlocked ? "0/{$totalPrivateRooms} ruangan" : "{$totalPrivateRooms}/{$totalPrivateRooms} ruangan",
+                    'occupancy' => $roomBlocked ? 'FULL' : 'AVAILABLE',
+                    'inv' => $displayBooking ? ($displayBooking->order->order_number ?? '-') : '-',
+                    'check_in' => $displayBooking && $displayBooking->booking_start_at ? Carbon::parse($displayBooking->booking_start_at)->format('g:iA') : '',
+                    'check_out' => $displayBooking && $displayBooking->booking_end_at ? Carbon::parse($displayBooking->booking_end_at)->format('g:iA') : '',
                 ];
             }
 
@@ -216,9 +230,10 @@ class RoomScheduleController extends Controller
             ->where('stock_restored', false);
 
         if ($isToday) {
-            // Real-time: only bookings active RIGHT NOW
+            // Today: show bookings that haven't ended yet (active + upcoming today)
             $now = Carbon::now();
-            $query->where('booking_start_at', '<=', $now)
+            $endOfDay = $targetDate->copy()->endOfDay();
+            $query->where('booking_start_at', '<=', $endOfDay)
                   ->where(function ($q) use ($now) {
                       $q->where('booking_end_at', '>', $now)
                         ->orWhereNull('booking_end_at');
@@ -239,7 +254,8 @@ class RoomScheduleController extends Controller
             $query->where('variant_id', $variantId);
         }
 
-        return $query->first();
+        // For today: prioritize currently active booking, then upcoming
+        return $query->orderBy('booking_start_at', 'asc')->first();
     }
 
     /**
@@ -257,8 +273,10 @@ class RoomScheduleController extends Controller
             ->where('stock_restored', false);
 
         if ($isToday) {
+            // Today: bookings that haven't ended yet (active + upcoming)
             $now = Carbon::now();
-            $query->where('booking_start_at', '<=', $now)
+            $endOfDay = $targetDate->copy()->endOfDay();
+            $query->where('booking_start_at', '<=', $endOfDay)
                   ->where(function ($q) use ($now) {
                       $q->where('booking_end_at', '>', $now)
                         ->orWhereNull('booking_end_at');
@@ -273,7 +291,7 @@ class RoomScheduleController extends Controller
                   });
         }
 
-        return $query->orderBy('id')->get();
+        return $query->orderBy('booking_start_at', 'asc')->get();
     }
 
     /**
@@ -290,8 +308,10 @@ class RoomScheduleController extends Controller
             ->where('stock_restored', false);
 
         if ($isToday) {
+            // Today: count bookings that haven't ended yet (active + upcoming)
             $now = Carbon::now();
-            $query->where('booking_start_at', '<=', $now)
+            $endOfDay = $targetDate->copy()->endOfDay();
+            $query->where('booking_start_at', '<=', $endOfDay)
                   ->where('booking_end_at', '>', $now);
         } else {
             $startOfDay = $targetDate->copy()->startOfDay();
