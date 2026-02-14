@@ -16,6 +16,7 @@ import {
   UserCircleIcon,
   NewspaperIcon,
   UsersIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 export default function AdminLayout({ children }) {
@@ -101,6 +102,12 @@ export default function AdminLayout({ children }) {
       href: '/admin/paymentsettings',
       icon: CurrencyDollarIcon,
       current: url.startsWith('/admin/paymentsettings') || url.startsWith('/admin/settings'),
+    },
+    {
+      name: 'Agreements',
+      href: '/admin/agreements',
+      icon: DocumentTextIcon,
+      current: url.startsWith('/admin/agreements'),
     },
     {
       name: 'News & Blogs',

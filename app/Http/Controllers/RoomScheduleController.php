@@ -83,15 +83,34 @@ class RoomScheduleController extends Controller
                     ];
                 } else {
                     $availableDesks = max(0, $totalDesks - $bookedDesks);
+                    $occupancy = $availableDesks > 0 ? 'AVAILABLE' : 'FULL';
 
-                    $meetingRoomItems[] = [
-                        'sub_type' => $shareDesk->title,
-                        'capacity' => "{$availableDesks}/{$totalDesks} meja",
-                        'occupancy' => $availableDesks > 0 ? 'AVAILABLE' : 'FULL',
-                        'inv' => $shareDeskBooking ? ($shareDeskBooking->order->order_number ?? '-') : '-',
-                        'check_in' => $shareDeskBooking && $shareDeskBooking->booking_start_at ? Carbon::parse($shareDeskBooking->booking_start_at)->format('g:iA') : '',
-                        'check_out' => $shareDeskBooking && $shareDeskBooking->booking_end_at ? Carbon::parse($shareDeskBooking->booking_end_at)->format('g:iA') : '',
-                    ];
+                    // Get ALL active bookings for share desk, ordered by check-in time
+                    $allShareDeskBookings = $this->getAllActiveBookings($shareDesk->id, $dateStr);
+
+                    if ($allShareDeskBookings->isEmpty()) {
+                        // No bookings - single row
+                        $meetingRoomItems[] = [
+                            'sub_type' => $shareDesk->title,
+                            'capacity' => "{$availableDesks}/{$totalDesks} meja",
+                            'occupancy' => $occupancy,
+                            'inv' => '-',
+                            'check_in' => '',
+                            'check_out' => '',
+                        ];
+                    } else {
+                        // Multiple bookings - one row per booking, ordered by check-in
+                        foreach ($allShareDeskBookings as $index => $booking) {
+                            $meetingRoomItems[] = [
+                                'sub_type' => $index === 0 ? $shareDesk->title : '',
+                                'capacity' => $index === 0 ? "{$availableDesks}/{$totalDesks} meja" : '',
+                                'occupancy' => $index === 0 ? $occupancy : '',
+                                'inv' => $booking->order->order_number ?? '-',
+                                'check_in' => $booking->booking_start_at ? Carbon::parse($booking->booking_start_at)->format('g:iA') : '',
+                                'check_out' => $booking->booking_end_at ? Carbon::parse($booking->booking_end_at)->format('g:iA') : '',
+                            ];
+                        }
+                    }
                 }
             }
 

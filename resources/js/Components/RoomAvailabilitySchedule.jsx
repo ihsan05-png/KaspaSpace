@@ -197,11 +197,30 @@ const RoomAvailabilitySchedule = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {scheduleData.map((group, groupIndex) => (
-                                group.items.map((item, itemIndex) => (
+                            {scheduleData.map((group, groupIndex) => {
+                                // Calculate rowSpan for sub_type groups
+                                const subTypeSpans = [];
+                                let i = 0;
+                                while (i < group.items.length) {
+                                    let span = 1;
+                                    while (i + span < group.items.length && !group.items[i + span].sub_type) {
+                                        span++;
+                                    }
+                                    subTypeSpans.push({ index: i, span });
+                                    i += span;
+                                }
+                                const spanMap = {};
+                                subTypeSpans.forEach(({ index, span }) => { spanMap[index] = span; });
+
+                                return group.items.map((item, itemIndex) => {
+                                    const isSubTypeStart = item.sub_type !== '';
+                                    const subSpan = spanMap[itemIndex] || 0;
+                                    const isLastInSubGroup = isSubTypeStart ? (subSpan === 1) : (itemIndex + 1 >= group.items.length || group.items[itemIndex + 1]?.sub_type);
+
+                                    return (
                                     <tr
                                         key={`${groupIndex}-${itemIndex}`}
-                                        className={`border-b border-gray-200 ${groupIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
+                                        className={`${isLastInSubGroup ? 'border-b border-gray-200' : ''} ${groupIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
                                     >
                                         {itemIndex === 0 ? (
                                             <td className="px-4 py-2.5 font-medium text-gray-800 border-r border-gray-200 align-top" rowSpan={group.items.length}>
@@ -221,19 +240,27 @@ const RoomAvailabilitySchedule = () => {
                                             </td>
                                         ) : null}
 
-                                        <td className="px-4 py-2.5 text-gray-700 border-r border-gray-200">
-                                            {item.sub_type}
-                                        </td>
+                                        {isSubTypeStart ? (
+                                            <td className="px-4 py-2.5 text-gray-700 border-r border-gray-200 align-top" rowSpan={subSpan}>
+                                                {item.sub_type}
+                                            </td>
+                                        ) : null}
 
-                                        <td className="px-4 py-2.5 text-center text-gray-600 border-r border-gray-200 text-sm">
-                                            {item.capacity || '-'}
-                                        </td>
+                                        {isSubTypeStart ? (
+                                            <td className="px-4 py-2.5 text-center text-gray-600 border-r border-gray-200 text-sm align-top" rowSpan={subSpan}>
+                                                {item.capacity || '-'}
+                                            </td>
+                                        ) : null}
 
-                                        <td className="px-4 py-2.5 text-center border-r border-gray-200">
-                                            <span className={`inline-block px-3 py-1 rounded text-xs font-bold text-white min-w-[80px] ${item.occupancy === 'AVAILABLE' ? 'bg-green-600' : 'bg-red-700'}`}>
-                                                {item.occupancy === 'AVAILABLE' ? 'AVAILABLE' : 'FULL'}
-                                            </span>
-                                        </td>
+                                        {isSubTypeStart ? (
+                                            <td className="px-4 py-2.5 text-center border-r border-gray-200 align-top" rowSpan={subSpan}>
+                                                {item.occupancy ? (
+                                                    <span className={`inline-block px-3 py-1 rounded text-xs font-bold text-white min-w-[80px] ${item.occupancy === 'AVAILABLE' ? 'bg-green-600' : 'bg-red-700'}`}>
+                                                        {item.occupancy === 'AVAILABLE' ? 'AVAILABLE' : 'FULL'}
+                                                    </span>
+                                                ) : null}
+                                            </td>
+                                        ) : null}
 
                                         <td className="px-4 py-2.5 text-center text-gray-700 border-r border-gray-200">
                                             {item.inv || '-'}
@@ -247,8 +274,9 @@ const RoomAvailabilitySchedule = () => {
                                             {item.check_out || ''}
                                         </td>
                                     </tr>
-                                ))
-                            ))}
+                                    );
+                                });
+                            })}
                         </tbody>
                     </table>
                 )}

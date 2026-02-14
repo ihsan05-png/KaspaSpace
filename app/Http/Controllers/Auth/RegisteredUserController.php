@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\Agreement;
 
 class RegisteredUserController extends Controller
 {
@@ -20,7 +21,10 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+        return Inertia::render('Auth/Register', [
+            'termsAgreement' => Agreement::getTerms(),
+            'privacyAgreement' => Agreement::getPrivacy(),
+        ]);
     }
 
     /**

@@ -21,6 +21,8 @@ use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\Admin\NewsletterController;
+use App\Http\Controllers\Admin\AgreementController;
+use App\Http\Controllers\Admin\StatisticsController;
 
 use App\Models\GoogleSheetsConfig;
 use App\Models\Product;
@@ -354,11 +356,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         ]);
     })->name('settings');
 
-    Route::get('statistics', function () {
-        return Inertia::render('admin/Statistics', [
-            'auth' => ['user' => Auth::user()]
-        ]);
-    })->name('statistics');
+    Route::get('statistics', [StatisticsController::class, 'index'])->name('statistics');
 
     Route::get('reservations', function () {
         return Inertia::render('admin/Reservations', [
@@ -389,6 +387,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
     Route::post('/orders/{order}/send-invoice', [AdminOrderController::class, 'sendInvoice'])->name('orders.send-invoice');
     Route::get('/orders/{order}/download-invoice', [AdminOrderController::class, 'downloadInvoice'])->name('orders.download-invoice');
+
+    // Agreements Management Routes
+    Route::get('agreements', [AgreementController::class, 'index'])->name('agreements.index');
+    Route::get('agreements/{agreement}/edit', [AgreementController::class, 'edit'])->name('agreements.edit');
+    Route::put('agreements/{agreement}', [AgreementController::class, 'update'])->name('agreements.update');
 
     // News Management Routes
     Route::resource('news', NewsController::class);

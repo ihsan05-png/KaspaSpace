@@ -12,6 +12,7 @@ use App\Models\NewsletterSubscriber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use App\Models\Agreement;
 
 class CheckoutController extends Controller
 {
@@ -52,6 +53,8 @@ class CheckoutController extends Controller
             'agreed_newsletter' => (bool) auth()->user()->agreed_newsletter,
         ] : null,
         'paymentSettings' => $paymentSettings,
+        'termsAgreement' => Agreement::getTerms(),
+        'privacyAgreement' => Agreement::getPrivacy(),
     ]);
 }
 
