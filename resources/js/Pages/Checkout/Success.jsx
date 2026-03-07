@@ -76,6 +76,162 @@ export default function CheckoutSuccess({ order }) {
 
     const headerContent = getHeaderContent();
 
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Jakarta'
+        });
+    };
+
+    const getInvoiceHtml = () => {
+        const logoUrl = `${window.location.origin}/images/kaspa-space-logo.png`;
+        const paymentMethodText =
+            currentOrder.payment_method === 'cash' ? 'Tunai' :
+            currentOrder.payment_method === 'qris' ? 'QRIS' :
+            currentOrder.payment_method === 'bank_transfer' ? 'Transfer Bank' :
+            currentOrder.payment_method === 'midtrans' ? 'Midtrans' : (currentOrder.payment_method || '-');
+
+        const statusText =
+            currentOrder.payment_status === 'paid' || currentOrder.payment_status === 'verified' ? 'Lunas' :
+            currentOrder.status === 'cancelled' ? 'Dibatalkan' : 'Menunggu Pembayaran';
+
+        const statusClass =
+            currentOrder.payment_status === 'paid' || currentOrder.payment_status === 'verified' ? 'status-paid' :
+            currentOrder.status === 'cancelled' ? 'status-cancelled' : 'status-unpaid';
+
+        const itemsHtml = currentOrder.items?.map(item => {
+            let bookingInfo = '';
+            if (item.booking_start_at && item.booking_end_at) {
+                const start = new Date(item.booking_start_at);
+                const end = new Date(item.booking_end_at);
+                const isDateOnly = ['private_office', 'virtual_office'].includes(item.product?.product_type);
+                if (isDateOnly) {
+                    const startDate = start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const endDate = end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    bookingInfo = `<br><small style="color: #059669;">${startDate} - ${endDate}</small>`;
+                } else {
+                    const dateStr = start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const startTime = start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const endTime = end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    bookingInfo = `<br><small style="color: #059669;">${dateStr}, ${startTime} - ${endTime}</small>`;
+                }
+            }
+            return `
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #eee;">
+                    ${item.product_name}
+                    ${item.variant_name ? `<br><small style="color: #3b82f6;">${item.variant_name}</small>` : ''}
+                    ${bookingInfo}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">Rp${Number(item.price).toLocaleString('id-ID')}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">Rp${Number(item.subtotal).toLocaleString('id-ID')}</td>
+            </tr>
+        `;
+        }).join('') || '';
+
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invoice ${currentOrder.order_number}</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; }
+                    .invoice-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    .invoice-info div { flex: 1; }
+                    .invoice-info h3 { color: #3b82f6; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
+                    .invoice-info p { margin: 5px 0; font-size: 14px; }
+                    .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    .invoice-table th { background: #3b82f6 !important; color: white !important; padding: 12px; text-align: left; font-size: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+                    .invoice-total { text-align: right; margin-top: 20px; }
+                    .invoice-total .total-row { display: flex; justify-content: flex-end; margin: 5px 0; }
+                    .invoice-total .total-label { width: 150px; text-align: right; padding-right: 20px; }
+                    .invoice-total .total-value { width: 150px; text-align: right; font-weight: bold; }
+                    .invoice-total .grand-total { font-size: 18px; color: #3b82f6; border-top: 2px solid #3b82f6; padding-top: 10px; margin-top: 10px; }
+                    .invoice-footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .status-paid { background: #dcfce7 !important; color: #166534 !important; }
+                    .status-unpaid { background: #fef9c3 !important; color: #854d0e !important; }
+                    .status-cancelled { background: #fee2e2 !important; color: #991b1b !important; }
+                    @media print { body { padding: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="invoice-header">
+                    <img src="${logoUrl}" alt="Kaspa Space" style="height: 100px;" />
+                </div>
+                <div class="invoice-info">
+                    <div>
+                        <h3>Informasi Pesanan</h3>
+                        <p><strong>No. Invoice:</strong> ${currentOrder.order_number}</p>
+                        <p><strong>Tanggal:</strong> ${formatDate(currentOrder.created_at)}</p>
+                        <p><strong>Metode Pembayaran:</strong> ${paymentMethodText}</p>
+                        <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${statusText}</span></p>
+                    </div>
+                    <div>
+                        <h3>Informasi Pelanggan</h3>
+                        <p><strong>Nama:</strong> ${currentOrder.customer_name}</p>
+                        <p><strong>Email:</strong> ${currentOrder.customer_email}</p>
+                        ${currentOrder.customer_phone ? `<p><strong>Telepon:</strong> ${currentOrder.customer_phone}</p>` : ''}
+                    </div>
+                </div>
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th style="text-align: center;">Qty</th>
+                            <th style="text-align: right;">Harga</th>
+                            <th style="text-align: right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+                <div class="invoice-total">
+                    <div class="total-row grand-total">
+                        <span class="total-label">TOTAL:</span>
+                        <span class="total-value">Rp${Number(currentOrder.total).toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                <div class="invoice-footer">
+                    <p>Terima kasih telah berbelanja di Kaspa Space</p>
+                    <p>Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
+                </div>
+            </body>
+            </html>
+        `;
+    };
+
+    const handlePrintInvoice = () => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(getInvoiceHtml());
+        printWindow.document.close();
+        printWindow.focus();
+
+        const img = printWindow.document.querySelector('img');
+        const doPrint = () => {
+            printWindow.print();
+            printWindow.close();
+        };
+
+        if (img && !img.complete) {
+            img.onload = doPrint;
+            img.onerror = doPrint;
+        } else {
+            setTimeout(doPrint, 300);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 py-12">
             <div className="max-w-3xl mx-auto px-4">
@@ -212,12 +368,23 @@ export default function CheckoutSuccess({ order }) {
                     >
                         Kembali ke Beranda
                     </a>
-                    <button
-                        onClick={() => window.print()}
-                        className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-50 transition"
-                    >
-                        Cetak Pesanan
-                    </button>
+                    {(currentOrder.payment_status === 'paid' || currentOrder.payment_status === 'verified') ? (
+                        <a
+                            href={`/orders/${currentOrder.id}/download-invoice`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-white border-2 border-blue-300 text-blue-700 py-4 rounded-xl font-semibold hover:bg-blue-50 transition text-center"
+                        >
+                            Download Invoice PDF
+                        </a>
+                    ) : (
+                        <button
+                            onClick={handlePrintInvoice}
+                            className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-50 transition"
+                        >
+                            Cetak Pesanan
+                        </button>
+                    )}
                 </div>
 
                 {/* Info Box */}

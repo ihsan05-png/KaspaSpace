@@ -9,6 +9,52 @@ use Inertia\Inertia;
 class ProductController extends Controller
 {
     /**
+     * Search products by keyword
+     */
+    public function search(Request $request)
+    {
+        $query = trim($request->get('q', ''));
+
+        if (strlen($query) < 1) {
+            return response()->json([]);
+        }
+
+        $words = preg_split('/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY);
+
+        $products = Product::with(['category:id,name,slug', 'variants:id,product_id,price,is_active'])
+            ->where('is_active', true)
+            ->where(function ($q) use ($words) {
+                foreach ($words as $word) {
+                    $q->where(function ($q2) use ($word) {
+                        $q2->where('title', 'like', "%{$word}%")
+                           ->orWhere('subtitle', 'like', "%{$word}%")
+                           ->orWhere('description', 'like', "%{$word}%");
+                    });
+                }
+            })
+            ->select('id', 'title', 'slug', 'base_price', 'images', 'category_id')
+            ->orderBy('sort_order')
+            ->limit(6)
+            ->get()
+            ->map(function ($product) {
+                $images = $this->parseImages($product->images);
+                $minVariantPrice = $product->variants->where('is_active', true)->min('price');
+                $displayPrice = $minVariantPrice ?? (float) $product->base_price;
+                $imageUrl = isset($images[0]) ? '/storage/' . $images[0] : null;
+                return [
+                    'id'         => $product->id,
+                    'title'      => $product->title,
+                    'slug'       => $product->slug,
+                    'min_price'  => (float) $displayPrice,
+                    'image'      => $imageUrl,
+                    'category'   => $product->category ? $product->category->name : null,
+                ];
+            });
+
+        return response()->json($products);
+    }
+
+    /**
      * Display a listing of products
      */
     public function index()
@@ -69,6 +115,8 @@ class ProductController extends Controller
             'images' => $this->parseImages($product->images),
             'is_active' => $product->is_active ?? true,
             'product_type' => $product->product_type ?? null,
+            'open_time' => $product->open_time ?? null,
+            'close_time' => $product->close_time ?? null,
             'category' => null,
             'variants' => [],
             'custom_options' => [],

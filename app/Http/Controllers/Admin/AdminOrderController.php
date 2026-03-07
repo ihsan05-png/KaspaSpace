@@ -73,7 +73,7 @@ class AdminOrderController extends Controller
     public function updateStatus(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'payment_status' => 'required|in:unpaid,paid,cancelled'
+            'payment_status' => 'required|in:unpaid,paid,cancelled,refunded'
         ]);
 
         $updateData = ['payment_status' => $validated['payment_status']];
@@ -120,8 +120,31 @@ class AdminOrderController extends Controller
         if ($validated['payment_status'] === 'cancelled') {
             $updateData['status'] = 'cancelled';
 
-            // Jika stok sudah dikurangi (sebelumnya paid), kembalikan stok
-            if ($order->payment_status === 'paid') {
+            // Kembalikan stok untuk semua item yang stock_reduced=true, regardless of previous payment_status
+            DB::transaction(function () use ($order) {
+                $order->load('items.productVariant', 'items.product');
+
+                foreach ($order->items as $item) {
+                    if ($item->stock_reduced && !$item->stock_restored) {
+                        $isBookingProduct = $item->product &&
+                            in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+
+                        if ($isBookingProduct) {
+                            // Booking products: just flip flag, no global stock to restore
+                            $item->update(['stock_restored' => true]);
+                        } elseif ($item->variant_id && $item->productVariant) {
+                            // Non-booking products: restore global stock
+                            $item->productVariant->incrementStock($item->quantity);
+                            $item->update(['stock_restored' => true]);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Jika refunded, kembalikan stok jika sebelumnya paid/verified
+        if ($validated['payment_status'] === 'refunded') {
+            if (in_array($order->payment_status, ['paid', 'verified'])) {
                 DB::transaction(function () use ($order) {
                     $order->load('items.productVariant', 'items.product');
 
@@ -131,10 +154,8 @@ class AdminOrderController extends Controller
                                 in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
 
                             if ($isBookingProduct) {
-                                // Booking products: just flip flag, no global stock to restore
                                 $item->update(['stock_restored' => true]);
                             } elseif ($item->variant_id && $item->productVariant) {
-                                // Non-booking products: restore global stock
                                 $item->productVariant->incrementStock($item->quantity);
                                 $item->update(['stock_restored' => true]);
                             }

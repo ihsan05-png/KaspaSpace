@@ -17,6 +17,7 @@ import {
   NewspaperIcon,
   UsersIcon,
   DocumentTextIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
 
 export default function AdminLayout({ children }) {
@@ -72,6 +73,12 @@ export default function AdminLayout({ children }) {
       href: '/admin/reservations',
       icon: ClipboardDocumentListIcon,
       current: url.startsWith('/admin/reservations'),
+    },
+    {
+      name: 'Monitoring',
+      href: '/admin/monitoring',
+      icon: ComputerDesktopIcon,
+      current: url.startsWith('/admin/monitoring'),
     },
     {
       name: 'Diskon',

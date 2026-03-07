@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 const EditUser = ({ user }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
     const { data, setData, put, processing, errors } = useForm({
         name: user.name || '',
         email: user.email || '',
@@ -98,6 +100,7 @@ const EditUser = ({ user }) => {
                                     <h3 className="text-lg font-medium text-gray-900 mb-4">
                                         Ubah Password
                                     </h3>
+
                                     <p className="text-sm text-gray-500 mb-4">
                                         Kosongkan jika tidak ingin mengubah password
                                     </p>
@@ -107,14 +110,27 @@ const EditUser = ({ user }) => {
                                         <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                                             Password Baru
                                         </label>
-                                        <input
-                                            type="password"
-                                            id="password"
-                                            value={data.password}
-                                            onChange={(e) => setData('password', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            placeholder="••••••••"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                id="password"
+                                                value={data.password}
+                                                onChange={(e) => setData('password', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showPassword ? (
+                                                    <EyeSlashIcon className="h-5 w-5" />
+                                                ) : (
+                                                    <EyeIcon className="h-5 w-5" />
+                                                )}
+                                            </button>
+                                        </div>
                                         {errors.password && (
                                             <p className="mt-1 text-sm text-red-600">{errors.password}</p>
                                         )}
@@ -128,14 +144,27 @@ const EditUser = ({ user }) => {
                                         <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700 mb-1">
                                             Konfirmasi Password Baru
                                         </label>
-                                        <input
-                                            type="password"
-                                            id="password_confirmation"
-                                            value={data.password_confirmation}
-                                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            placeholder="••••••••"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showPasswordConfirmation ? 'text' : 'password'}
+                                                id="password_confirmation"
+                                                value={data.password_confirmation}
+                                                onChange={(e) => setData('password_confirmation', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPasswordConfirmation(!showPasswordConfirmation)}
+                                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {showPasswordConfirmation ? (
+                                                    <EyeSlashIcon className="h-5 w-5" />
+                                                ) : (
+                                                    <EyeIcon className="h-5 w-5" />
+                                                )}
+                                            </button>
+                                        </div>
                                         {errors.password_confirmation && (
                                             <p className="mt-1 text-sm text-red-600">{errors.password_confirmation}</p>
                                         )}

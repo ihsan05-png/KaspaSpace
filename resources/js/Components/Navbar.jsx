@@ -1,77 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Menu, X, ShoppingBag, Receipt, User, LayoutDashboard, LogOut } from 'lucide-react';
-import axios from 'axios';
 import Logo from '../../images/logo.png';
 import CartDrawer from './CartDrawer';
  
 
 const Navbar = () => {
-  const user = usePage().props?.auth?.user;
-  const cart = usePage().props?.cart || [];
+  const { auth, cart: cartData, pendingOrder: serverPendingOrder } = usePage().props;
+  const user = auth?.user;
+  const cart = cartData || [];
   const cartItemCount = cart.length;
   const [isProductsOpen, setIsProductsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [pendingOrder, setPendingOrder] = useState(null);
 
-  // Auto-cancel expired order in database
-  const cancelExpiredOrder = async (orderId) => {
-    try {
-      await axios.post(`/orders/${orderId}/cancel`);
-      console.log('Expired order auto-cancelled:', orderId);
-    } catch (error) {
-      console.error('Error auto-cancelling expired order:', error);
-    }
-  };
-
-  // Check for pending order
-  useEffect(() => {
-    const checkPendingOrder = async () => {
-      const savedOrder = localStorage.getItem('pendingOrder');
-      if (savedOrder) {
-        try {
-          const order = JSON.parse(savedOrder);
-          const createdAt = new Date(order.created_at);
-          const now = new Date();
-          const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
-          
-          if (hoursDiff >= 24) {
-            // Order expired - cancel in database and remove from localStorage
-            await cancelExpiredOrder(order.id);
-            localStorage.removeItem('pendingOrder');
-            setPendingOrder(null);
-          } else if (order.payment_status === 'unpaid') {
-            setPendingOrder(order);
-          } else {
-            localStorage.removeItem('pendingOrder');
-            setPendingOrder(null);
-          }
-        } catch (e) {
-          localStorage.removeItem('pendingOrder');
-          setPendingOrder(null);
-        }
-      }
-    };
-
-    checkPendingOrder();
-
-    // Check every minute for expiry
-    const interval = setInterval(checkPendingOrder, 60000);
-
-    // Listen for storage changes
-    const handleStorageChange = () => {
-      checkPendingOrder();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  // Pending order comes from server (shared via Inertia middleware)
+  const pendingOrder = user ? serverPendingOrder : null;
 
   const handleProductsToggle = () => {
     setIsProductsOpen((prev) => !prev);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { RefreshCw, Wifi, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const RoomAvailabilitySchedule = () => {
+const RoomAvailabilitySchedule = ({ includeVirtual = false }) => {
     const [scheduleData, setScheduleData] = useState([]);
     const [currentDate, setCurrentDate] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -17,7 +17,7 @@ const RoomAvailabilitySchedule = () => {
     const fetchSchedule = async (date) => {
         try {
             const response = await axios.get('/api/room-schedule', {
-                params: { date: date || selectedDate }
+                params: { date: date || selectedDate, include_virtual: includeVirtual ? 1 : 0 }
             });
 
             if (response.data.success) {

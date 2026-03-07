@@ -78,12 +78,14 @@ class ProductController extends Controller
         'base_price' => 'required|numeric|min:0',
         'category_id' => 'required|exists:categories,id',
         'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
+        'open_time' => 'nullable|string|max:5',
+        'close_time' => 'nullable|string|max:5',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'sort_order' => 'nullable|integer|min:0',
         'meta_description' => 'nullable|string|max:160',
         'meta_keywords' => 'nullable|string|max:255',
-        
+
         // Images
         'images' => 'nullable|array|max:6',
         'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
@@ -105,6 +107,7 @@ class ProductController extends Controller
         'variants.*.manage_stock' => 'nullable|boolean',
         'variants.*.sku' => 'nullable|string|max:100',
         'variants.*.duration_hours' => 'nullable|numeric|min:0',
+        'variants.*.sort_order' => 'nullable|integer|min:0',
 
         // Recommendations
         'recommendations' => 'nullable|array',
@@ -132,6 +135,8 @@ class ProductController extends Controller
             'base_price' => $validated['base_price'],
             'category_id' => $validated['category_id'],
             'product_type' => $validated['product_type'] ?? null,
+            'open_time' => $validated['open_time'] ?? null,
+            'close_time' => $validated['close_time'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
             'is_featured' => $validated['is_featured'] ?? false,
             'sort_order' => $validated['sort_order'] ?? 0,
@@ -243,12 +248,14 @@ class ProductController extends Controller
             'base_price' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
+            'open_time' => 'nullable|string|max:5',
+            'close_time' => 'nullable|string|max:5',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             'sort_order' => 'integer|min:0',
             'meta_description' => 'nullable|string|max:160',
             'meta_keywords' => 'nullable|string|max:255',
-            
+
             // Images
             'images' => 'nullable|array|max:6',
             'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
@@ -273,6 +280,7 @@ class ProductController extends Controller
             'variants.*.is_active' => 'boolean',
             'variants.*.sku' => 'nullable|string|max:100',
             'variants.*.duration_hours' => 'nullable|numeric|min:0',
+            'variants.*.sort_order' => 'nullable|integer|min:0',
 
             // Recommendations
             'recommendations' => 'nullable|array',

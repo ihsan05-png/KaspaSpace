@@ -14,5 +14,7 @@ class PaymentSetting extends Model
         'bank_name',
         'account_number',
         'account_name',
+        'open_time',
+        'close_time',
     ];
 }

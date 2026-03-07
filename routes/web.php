@@ -71,15 +71,6 @@ Route::middleware(['redirect.admin'])->group(function () {
         return Inertia::render('Contact');
     })->name('contact');
 
-    // Terms & Privacy Routes
-    Route::get('/terms', function () {
-        return Inertia::render('Terms');
-    })->name('terms');
-
-    Route::get('/privacy', function () {
-        return Inertia::render('Privacy');
-    })->name('privacy');
-
     // Public News Routes
     Route::get('/news', [NewsController::class, 'publicIndex'])->name('news.index');
     Route::get('/news/{slug}', [NewsController::class, 'publicShow'])->name('news.show');
@@ -179,6 +170,7 @@ Route::middleware(['redirect.admin'])->group(function () {
     Route::get('/products', [\App\Http\Controllers\ProductController::class, 'index'])->name('products.index');
     Route::get('/products/{category:slug}', [\App\Http\Controllers\ProductController::class, 'category'])->name('products.category');
     Route::get('/product/{product:slug}', [\App\Http\Controllers\ProductController::class, 'show'])->name('products.show');
+    Route::get('/api/products/search', [\App\Http\Controllers\ProductController::class, 'search'])->name('api.products.search');
     
     // Checkout
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
@@ -287,13 +279,15 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/paymentsettings', [PaymentSettingsController::class, 'index'])->name('admin.paymentsettings');
     Route::post('/paymentsettings/qris', [PaymentSettingsController::class, 'updateQris'])->name('admin.paymentsettings.qris');
     Route::post('/paymentsettings/bank', [PaymentSettingsController::class, 'updateBank'])->name('admin.paymentsettings.bank');
-    
+    Route::post('/paymentsettings/operational-hours', [PaymentSettingsController::class, 'updateOperationalHours'])->name('admin.paymentsettings.operational-hours');
+
     // Payment Verification routes
     Route::get('/payments', [AdminOrderController::class, 'payments'])->name('admin.payments');
     Route::post('/orders/{order}/verify-payment', [AdminOrderController::class, 'verifyPayment'])->name('admin.orders.verify-payment');
 
     // Schedule Management Routes
     Route::get('/schedule', [ScheduleController::class, 'index'])->name('schedule.index');
+    Route::post('/schedule/parse-excel', [ScheduleController::class, 'parseExcel'])->name('schedule.parse-excel');
     Route::post('/schedule/upload', [ScheduleController::class, 'upload'])->name('schedule.upload');
     Route::delete('/schedule/clear', [ScheduleController::class, 'clear'])->name('schedule.clear');
     Route::get('/schedule/view', [ScheduleController::class, 'view'])->name('schedule.view');
@@ -374,6 +368,12 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Newsletter Routes
     Route::post('newsletter/send', [NewsletterController::class, 'send'])->name('newsletter.send');
     Route::delete('newsletter/unsubscribe/{subscriber}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
+
+    Route::get('monitoring', function () {
+        return Inertia::render('admin/RoomMonitoring');
+    })->name('monitoring');
+
+    Route::patch('monitoring/stock/{product}', [\App\Http\Controllers\Admin\RoomMonitoringController::class, 'adjustStock'])->name('monitoring.adjust-stock');
 
     Route::get('integrations', function () {
         return Inertia::render('admin/Integrations', [
@@ -463,6 +463,7 @@ Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.s
 Route::get('/orders/{order}/payment', [CheckoutController::class, 'payment'])->name('orders.payment');
 Route::post('/orders/{order}/upload-payment', [OrderController::class, 'uploadPayment'])->name('orders.upload-payment');
 Route::get('/orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
+Route::get('/orders/{order}/download-invoice', [OrderController::class, 'downloadInvoice'])->name('orders.download-invoice');
 
 
 // payment adnmin routes

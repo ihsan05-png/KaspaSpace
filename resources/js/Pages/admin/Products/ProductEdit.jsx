@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, useForm, Link, router } from '@inertiajs/react';
+import { Head, useForm, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
   PlusIcon,
@@ -21,13 +21,43 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
     existing_images: product.images || [],
     images: [],
     custom_options: product.custom_options || [],
-    variants: product.variants || [],
+    variants: (product.variants || []).map(v => ({
+      ...v,
+      name: v.name ? v.name.replace(/\s*\(Full Day[^)]*\)/gi, '').trim() : v.name,
+    })),
     recommendations: product.recommended_products?.map(p => p.id) || [],
   });
 
   const [imagePreview, setImagePreview] = useState(product.images || []);
   const [newImages, setNewImages] = useState([]);
   const [selectedProductType, setSelectedProductType] = useState(product.product_type || '');
+
+  const { operationalHours } = usePage().props;
+  const OPEN  = operationalHours?.open  || '08:00';
+  const CLOSE = operationalHours?.close || '17:00';
+  // Use per-product hours if saved, otherwise fall back to global setting
+  const [localOpen, setLocalOpen] = useState(product.open_time || OPEN);
+  const [localClose, setLocalClose] = useState(product.close_time || CLOSE);
+  const localMaxHours = Math.max(1, parseInt(localClose.split(':')[0], 10) - parseInt(localOpen.split(':')[0], 10));
+
+  // Generate hourly variants based on custom operational hours
+  const generateHourlyVariants = (type, open, close) => {
+    const oH = parseInt(open.split(':')[0], 10);
+    const cH = parseInt(close.split(':')[0], 10);
+    const maxH = Math.max(1, cH - oH);
+    const prefix = type === 'share_desk' ? 'SD' : 'PR';
+    const stock  = type === 'share_desk' ? 8 : 1;
+    return Array.from({ length: maxH }, (_, i) => ({
+      name: `${i + 1} Jam`,
+      price: '',
+      compare_price: '',
+      stock_quantity: stock,
+      manage_stock: true,
+      sku: `${prefix}-${i + 1}H`,
+      duration_hours: i + 1,
+      sort_order: i + 1,
+    }));
+  };
 
   // Variasi otomatis untuk Private Office (berdasarkan kapasitas)
   const privateOfficeVariants = [
@@ -45,31 +75,6 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
     { name: 'Private Office 8 pax 1 year', price: '', compare_price: '', stock_quantity: 6, manage_stock: true, sku: 'PO-8PAX-1Y' },
   ];
 
-  // Variasi otomatis untuk Share Desk (08:00 - 17:00 WIB)
-  const shareDeskVariants = [
-    { name: '1 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-1H' },
-    { name: '2 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-2H' },
-    { name: '3 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-3H' },
-    { name: '4 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-4H' },
-    { name: '5 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-5H' },
-    { name: '6 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-6H' },
-    { name: '7 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-7H' },
-    { name: '8 Jam', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-8H' },
-    { name: '9 Jam (Full Day)', price: '', compare_price: '', stock_quantity: 8, manage_stock: true, sku: 'SD-9H' },
-  ];
-
-  // Variasi otomatis untuk Private Room (08:00 - 17:00 WIB)
-  const privateRoomVariants = [
-    { name: '1 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-1H' },
-    { name: '2 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-2H' },
-    { name: '3 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-3H' },
-    { name: '4 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-4H' },
-    { name: '5 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-5H' },
-    { name: '6 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-6H' },
-    { name: '7 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-7H' },
-    { name: '8 Jam', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-8H' },
-    { name: '9 Jam (Full Day 08:00-17:00)', price: '', compare_price: '', stock_quantity: 1, manage_stock: true, sku: 'PR-9H' },
-  ];
 
   // Variasi otomatis untuk Virtual Office
   const virtualOfficeVariants = [
@@ -129,11 +134,49 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
     if (productType === 'private_office') {
       setData('variants', [...privateOfficeVariants]);
     } else if (productType === 'share_desk') {
-      setData('variants', [...shareDeskVariants]);
+      setLocalOpen(OPEN);
+      setLocalClose(CLOSE);
+      setData('variants', generateHourlyVariants('share_desk', OPEN, CLOSE));
     } else if (productType === 'private_room') {
-      setData('variants', [...privateRoomVariants]);
+      setLocalOpen(OPEN);
+      setLocalClose(CLOSE);
+      setData('variants', generateHourlyVariants('private_room', OPEN, CLOSE));
     } else if (productType === 'virtual_office') {
       setData('variants', [...virtualOfficeVariants]);
+    }
+  };
+
+  const handleLocalHoursChange = (newOpen, newClose) => {
+    setLocalOpen(newOpen);
+    setLocalClose(newClose);
+    if (selectedProductType === 'share_desk' || selectedProductType === 'private_room') {
+      const oH = parseInt(newOpen.split(':')[0], 10);
+      const cH = parseInt(newClose.split(':')[0], 10);
+      const newMaxH = Math.max(1, cH - oH);
+      const prefix = selectedProductType === 'share_desk' ? 'SD' : 'PR';
+      const defaultStock = selectedProductType === 'share_desk' ? 8 : 1;
+
+      // Smart merge: preserve existing data where hours still fit, add new slots
+      const newVariants = Array.from({ length: newMaxH }, (_, i) => {
+        const h = i + 1;
+        const existing = data.variants.find(v => Number(v.duration_hours) === h);
+        if (existing) return {
+          ...existing,
+          sort_order: h,
+          name: existing.name ? existing.name.replace(/\s*\(Full Day[^)]*\)/gi, '').trim() : existing.name,
+        }; // keep with saved price & id, update sort_order, clean up name
+        return {
+          name: `${h} Jam`,
+          price: '',
+          compare_price: '',
+          stock_quantity: defaultStock,
+          manage_stock: true,
+          sku: `${prefix}-${h}H`,
+          duration_hours: h,
+          sort_order: h,
+        };
+      });
+      setData('variants', newVariants);
     }
   };
 
@@ -204,15 +247,34 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
   };
 
   const addVariant = () => {
-    setData('variants', [...data.variants, {
-      name: '',
-      price: '',
-      compare_price: '',
-      stock_quantity: 0,
-      manage_stock: false,
-      attributes: {},
-      sku: ''
-    }]);
+    const isHourly = selectedProductType === 'share_desk' || selectedProductType === 'private_room';
+
+    if (isHourly) {
+      const maxHours = data.variants.reduce((max, v) => Math.max(max, Number(v.duration_hours) || 0), 0);
+      const nextHours = maxHours + 1;
+      const prefix = selectedProductType === 'share_desk' ? 'SD' : 'PR';
+      const defaultStock = selectedProductType === 'share_desk' ? 8 : 1;
+      setData('variants', [...data.variants, {
+        name: `${nextHours} Jam`,
+        price: '',
+        compare_price: '',
+        stock_quantity: defaultStock,
+        manage_stock: true,
+        sku: `${prefix}-${nextHours}H`,
+        duration_hours: nextHours,
+        sort_order: nextHours,
+      }]);
+    } else {
+      setData('variants', [...data.variants, {
+        name: '',
+        price: '',
+        compare_price: '',
+        stock_quantity: 0,
+        manage_stock: false,
+        attributes: {},
+        sku: ''
+      }]);
+    }
   };
 
   const updateVariant = (index, field, value) => {
@@ -238,9 +300,18 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
       option.question && option.question.trim() !== ''
     );
     
-    // Filter out empty variants
-    const validVariants = data.variants.filter(variant => 
-      variant.name && variant.name.trim() !== '' && variant.price
+    // Check for named variants missing a price (auto-generated slots often have empty price)
+    const variantsWithoutPrice = data.variants.filter(variant =>
+      variant.name && variant.name.trim() !== '' && !variant.price && variant.price !== 0
+    );
+    if (variantsWithoutPrice.length > 0) {
+      alert(`Harap isi harga untuk varian: ${variantsWithoutPrice.map(v => v.name).join(', ')}`);
+      return;
+    }
+
+    // Filter out completely empty variants (no name)
+    const validVariants = data.variants.filter(variant =>
+      variant.name && variant.name.trim() !== ''
     );
     
     // Prepare form data
@@ -252,6 +323,8 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
       base_price: data.base_price,
       category_id: data.category_id,
       product_type: data.product_type || '',
+      open_time: localOpen || null,
+      close_time: localClose || null,
       is_active: data.is_active ? 1 : 0,
       existing_images: data.existing_images,
       custom_options: validCustomOptions,
@@ -416,7 +489,7 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
             />
             {(selectedProductType === 'share_desk' || selectedProductType === 'private_room') && (
               <p className="mt-2 text-xs text-gray-500 italic">
-                💡 Tips: Jelaskan bahwa Meeting Room memiliki 8 meja kerja dengan jam operasional 08:00-17:00 WIB
+                💡 Tips: Jelaskan bahwa Meeting Room memiliki 8 meja kerja dengan jam operasional {localOpen}-{localClose} WIB
               </p>
             )}
           </div>
@@ -455,16 +528,16 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
               >
                 <option value="">Pilih Tipe Produk</option>
                 <option value="private_office">Private Office (6 ruangan terpisah)</option>
-                <option value="share_desk">Share Desk - Meeting Room (sewa per meja, 08:00-17:00 WIB)</option>
-                <option value="private_room">Private Room - Meeting Room (sewa seluruh ruangan, 08:00-17:00 WIB)</option>
+                <option value="share_desk">Share Desk - Meeting Room (sewa per meja)</option>
+                <option value="private_room">Private Room - Meeting Room (sewa seluruh ruangan)</option>
                 <option value="virtual_office">Virtual Office (sewa alamat kantor + fasilitas)</option>
               </select>
               {selectedProductType && (
                 <div className="mt-2">
                   <p className="text-sm text-gray-500">
                     {selectedProductType === 'private_office' && '✓ Variasi untuk Private Office telah ditambahkan (12 paket: 4/6/8 pax)'}
-                    {selectedProductType === 'share_desk' && '✓ Variasi untuk Share Desk telah ditambahkan (1-9 jam, operasional 08:00-17:00 WIB)'}
-                    {selectedProductType === 'private_room' && '✓ Variasi untuk Private Room telah ditambahkan (1-9 jam, operasional 08:00-17:00 WIB)'}
+                    {selectedProductType === 'share_desk' && `✓ Variasi untuk Share Desk telah ditambahkan (1-${localMaxHours} jam, operasional ${localOpen}-${localClose} WIB)`}
+                    {selectedProductType === 'private_room' && `✓ Variasi untuk Private Room telah ditambahkan (1-${localMaxHours} jam, operasional ${localOpen}-${localClose} WIB)`}
                     {selectedProductType === 'virtual_office' && '✓ Variasi untuk Virtual Office telah ditambahkan (15 paket: Bronze/Platinum/Gold/Diamond)'}
                   </p>
                   {selectedProductType === 'private_office' && (
@@ -498,6 +571,37 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                         <li><strong>Stok otomatis kembali setelah durasi sewa berakhir</strong> (contoh: booking 1 jam → stok kembali setelah 1 jam)</li>
                         <li>Backend harus mengimplementasikan sistem scheduling untuk auto-recovery stok berdasarkan waktu</li>
                       </ul>
+                    </div>
+                  )}
+                  {(selectedProductType === 'share_desk' || selectedProductType === 'private_room') && (
+                    <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
+                      <p className="text-xs font-semibold text-indigo-800 mb-2">⏰ Jam Operasional Produk Ini</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-indigo-700 mb-1">Jam Buka</label>
+                          <input
+                            type="time"
+                            value={localOpen}
+                            onChange={(e) => handleLocalHoursChange(e.target.value, localClose)}
+                            className="block w-full text-sm border-indigo-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-indigo-700 mb-1">Jam Tutup</label>
+                          <input
+                            type="time"
+                            value={localClose}
+                            onChange={(e) => handleLocalHoursChange(localOpen, e.target.value)}
+                            className="block w-full text-sm border-indigo-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-indigo-600 mt-2">
+                        {data.variants.some(v => v.id)
+                          ? `Produk sudah tersimpan — ubah jam tidak mereset varian. Gunakan tombol "+" untuk menambah jam baru.`
+                          : `Varian jam otomatis diperbarui: ${localMaxHours} varian (1 Jam – ${localMaxHours} Jam)`
+                        }
+                      </p>
                     </div>
                   )}
                 </div>
@@ -545,16 +649,14 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                 </p>
               )}
             </div>
-            {(!data.category_id || categories.find(cat => cat.id == data.category_id)?.name !== 'Coworking Space') && (
-              <button
-                type="button"
-                onClick={addVariant}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Tambahkan variasi produk
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={addVariant}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
+            >
+              <PlusIcon className="h-4 w-4 mr-1" />
+              Tambah varian
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -562,15 +664,13 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900">Varian {index + 1}</h4>
-                  {(!data.category_id || categories.find(cat => cat.id == data.category_id)?.name !== 'Coworking Space') && (
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -581,7 +681,6 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                       value={variant.name}
                       onChange={(e) => updateVariant(index, 'name', e.target.value)}
                       className="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      readOnly={data.category_id && categories.find(cat => cat.id == data.category_id)?.name === 'Coworking Space'}
                     />
                   </div>
                   
@@ -613,7 +712,6 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                       value={variant.sku || ''}
                       onChange={(e) => updateVariant(index, 'sku', e.target.value)}
                       className="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      readOnly={data.category_id && categories.find(cat => cat.id == data.category_id)?.name === 'Coworking Space'}
                     />
                   </div>
                 </div>

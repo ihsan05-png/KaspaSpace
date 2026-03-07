@@ -454,7 +454,7 @@ const EditDiscount = ({ discount, products, users }) => {
                                                             <div className="text-sm font-medium text-gray-900">
                                                                 {user.name}
                                                             </div>
-                                                            <div className="text-sm text-gray-500">
+                                                            <div className="text-xs text-gray-500">
                                                                 {user.email}
                                                             </div>
                                                         </div>

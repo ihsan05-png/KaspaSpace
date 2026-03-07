@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OrderItem;
+use App\Models\PaymentSetting;
 use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -44,9 +45,12 @@ class BookingAvailabilityController extends Controller
             $start = Carbon::parse("$date $startTime");
             $end = (clone $start)->addMinutes((int) ($durationHours * 60));
 
-            // Validate operating hours (08:00 - 17:00)
-            $opStart = Carbon::parse("$date 08:00");
-            $opEnd = Carbon::parse("$date 17:00");
+            // Validate operating hours — use per-product hours if set, otherwise global setting
+            $setting   = PaymentSetting::first();
+            $openTime  = $product->open_time  ?? $setting->open_time  ?? '08:00';
+            $closeTime = $product->close_time ?? $setting->close_time ?? '17:00';
+            $opStart = Carbon::parse("$date $openTime");
+            $opEnd   = Carbon::parse("$date $closeTime");
 
             // Reject past times for today
             if ($start->lt(now())) {
@@ -59,14 +63,14 @@ class BookingAvailabilityController extends Controller
             if ($start->lt($opStart)) {
                 return response()->json([
                     'available' => false,
-                    'message' => 'Jam operasional dimulai dari 08:00',
+                    'message' => "Jam operasional dimulai dari {$openTime}",
                 ]);
             }
 
             if ($end->gt($opEnd)) {
                 return response()->json([
                     'available' => false,
-                    'message' => 'Booking melebihi jam operasional (17:00)',
+                    'message' => "Booking melebihi jam operasional ({$closeTime})",
                 ]);
             }
 
@@ -153,7 +157,7 @@ class BookingAvailabilityController extends Controller
                     $q->where('product_type', $productType);
                 })
                 ->whereHas('order', function ($q) {
-                    $q->whereNotIn('status', ['cancelled']);
+                    $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled');
                 })
                 ->where('stock_reduced', true)
                 ->where('stock_restored', false)
@@ -206,7 +210,7 @@ class BookingAvailabilityController extends Controller
             ->where('stock_reduced', true)
             ->where('stock_restored', false)
             ->where('booking_start_at', '<', $end)
-            ->where('booking_end_at', '>', $start)
+            ->where('booking_end_at', '>=', $start->copy()->subMinutes(10))
             ->sum('quantity');
     }
 
@@ -224,7 +228,7 @@ class BookingAvailabilityController extends Controller
             ->where('stock_reduced', true)
             ->where('stock_restored', false)
             ->where('booking_start_at', '<', $end)
-            ->where('booking_end_at', '>', $start)
+            ->where('booking_end_at', '>=', $start->copy()->subMinutes(10))
             ->exists();
     }
 }

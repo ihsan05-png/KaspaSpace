@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ScheduleController extends Controller
 {
@@ -97,6 +98,55 @@ class ScheduleController extends Controller
         ]);
     }
     
+    public function parseExcel(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            $spreadsheet = IOFactory::load($file->getPathname());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray(null, true, true, false);
+
+            if (empty($rows)) {
+                return response()->json(['error' => 'File Excel kosong.'], 422);
+            }
+
+            // Baris pertama sebagai header
+            $headers = array_map('trim', $rows[0]);
+            $data = [];
+
+            for ($i = 1; $i < count($rows); $i++) {
+                $row = $rows[$i];
+
+                // Skip baris kosong
+                if (empty(array_filter($row))) continue;
+
+                $map = array_combine($headers, $row);
+
+                $data[] = [
+                    'id'        => $i,
+                    'room'      => $map['ROOM'] ?? $map['Room'] ?? '',
+                    'date'      => $map['DATE'] ?? $map['Date'] ?? '',
+                    'type'      => $map['TYPE'] ?? $map['Type'] ?? '',
+                    'sub_type'  => $map['SUB TYPE'] ?? $map['Sub Type'] ?? $map['subType'] ?? '',
+                    'occupancy' => $map['OCCUPANCY'] ?? $map['Occupancy'] ?? '',
+                    'inv'       => $map['INV'] ?? $map['Inv'] ?? '',
+                    'check_in'  => $map['CHECK-IN'] ?? $map['Check In'] ?? $map['checkIn'] ?? '',
+                    'check_out' => $map['CHECK-OUT'] ?? $map['Check Out'] ?? $map['checkOut'] ?? '',
+                ];
+            }
+
+            return response()->json(['data' => $data, 'total' => count($data)]);
+
+        } catch (\Exception $e) {
+            \Log::error('Parse Excel error: ' . $e->getMessage());
+            return response()->json(['error' => 'Gagal membaca file Excel. Pastikan format file valid.'], 422);
+        }
+    }
+
     // API endpoint for frontend real-time data
     public function getPublicData()
     {

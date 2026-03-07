@@ -24,8 +24,15 @@ class RoomScheduleController extends Controller
         $displayDate = $date->format('j M Y');
         $isToday = $date->isToday();
 
+        $includeVirtual = (bool) $request->input('include_virtual', false);
+
+        $productTypes = ['share_desk', 'private_room', 'private_office'];
+        if ($includeVirtual) {
+            $productTypes[] = 'virtual_office';
+        }
+
         // Get all coworking products with variants from database
-        $products = Product::whereIn('product_type', ['share_desk', 'private_room', 'private_office', 'virtual_office'])
+        $products = Product::whereIn('product_type', $productTypes)
             ->where('is_active', true)
             ->with(['variants' => function ($q) {
                 $q->where('is_active', true)->orderBy('sort_order');
@@ -204,7 +211,58 @@ class RoomScheduleController extends Controller
             ];
         }
 
-        // Virtual Office is excluded - it's a service package, not physical room
+        // =====================================================
+        // VIRTUAL OFFICE SECTION
+        // Each booking occupies one slot; slots numbered from 1
+        // =====================================================
+        $virtualOfficeProducts = $products->where('product_type', 'virtual_office');
+
+        foreach ($virtualOfficeProducts as $product) {
+            $voItems        = [];
+            $bookings       = $this->getAllActiveBookings($product->id, $dateStr);
+            $activeBookings = [];
+
+            foreach ($bookings as $booking) {
+                for ($q = 0; $q < $booking->quantity; $q++) {
+                    $activeBookings[] = [
+                        'inv'       => $booking->order->order_number ?? '-',
+                        'check_in'  => $booking->booking_start_at ? Carbon::parse($booking->booking_start_at)->format('j M Y') : '-',
+                        'check_out' => $booking->booking_end_at   ? Carbon::parse($booking->booking_end_at)->format('j M Y')   : '-',
+                    ];
+                }
+            }
+
+            if (empty($activeBookings)) {
+                // Tidak ada langganan aktif
+                $voItems[] = [
+                    'sub_type'  => $product->title,
+                    'capacity'  => '-',
+                    'occupancy' => 'AVAILABLE',
+                    'inv'       => '-',
+                    'check_in'  => '',
+                    'check_out' => '',
+                ];
+            } else {
+                // Satu baris per langganan aktif, tanpa angka kapasitas
+                foreach ($activeBookings as $index => $s) {
+                    $voItems[] = [
+                        'sub_type'  => $index === 0 ? $product->title : '',
+                        'capacity'  => '-',
+                        'occupancy' => $index === 0 ? 'AVAILABLE' : '',
+                        'inv'       => $s['inv'],
+                        'check_in'  => $s['check_in'],
+                        'check_out' => $s['check_out'],
+                    ];
+                }
+            }
+
+            $schedule[] = [
+                'room'  => 'Virtual Office',
+                'date'  => $displayDate,
+                'type'  => $product->title,
+                'items' => $voItems,
+            ];
+        }
 
         return response()->json([
             'success' => true,
@@ -244,13 +302,14 @@ class RoomScheduleController extends Controller
 
         $query = OrderItem::with('order')
             ->whereHas('product', fn($q) => $q->where('id', $productId))
-            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
             ->where('stock_reduced', true)
             ->where('stock_restored', false);
 
         if ($isToday) {
             // Today: show bookings that haven't ended yet (active + upcoming today)
-            $now = Carbon::now();
+            // Subtract 10 minutes to keep booking visible during grace period
+            $now = Carbon::now()->subMinutes(10);
             $endOfDay = $targetDate->copy()->endOfDay();
             $query->where('booking_start_at', '<=', $endOfDay)
                   ->where(function ($q) use ($now) {
@@ -287,13 +346,14 @@ class RoomScheduleController extends Controller
 
         $query = OrderItem::with(['order', 'productVariant'])
             ->whereHas('product', fn($q) => $q->where('id', $productId))
-            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
             ->where('stock_reduced', true)
             ->where('stock_restored', false);
 
         if ($isToday) {
             // Today: bookings that haven't ended yet (active + upcoming)
-            $now = Carbon::now();
+            // Subtract 10 minutes to keep booking visible during grace period
+            $now = Carbon::now()->subMinutes(10);
             $endOfDay = $targetDate->copy()->endOfDay();
             $query->where('booking_start_at', '<=', $endOfDay)
                   ->where(function ($q) use ($now) {
@@ -322,13 +382,14 @@ class RoomScheduleController extends Controller
         $isToday = $targetDate->isToday();
 
         $query = OrderItem::whereHas('product', fn($q) => $q->where('id', $productId))
-            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
             ->where('stock_reduced', true)
             ->where('stock_restored', false);
 
         if ($isToday) {
             // Today: count bookings that haven't ended yet (active + upcoming)
-            $now = Carbon::now();
+            // Subtract 10 minutes to count bookings still in grace period
+            $now = Carbon::now()->subMinutes(10);
             $endOfDay = $targetDate->copy()->endOfDay();
             $query->where('booking_start_at', '<=', $endOfDay)
                   ->where('booking_end_at', '>', $now);
@@ -349,7 +410,7 @@ class RoomScheduleController extends Controller
     {
         $today = Carbon::today()->format('Y-m-d');
 
-        $products = Product::whereIn('product_type', ['share_desk', 'private_room', 'private_office'])
+        $products = Product::whereIn('product_type', ['share_desk', 'private_room', 'private_office', 'virtual_office'])
             ->where('is_active', true)
             ->with(['variants' => function ($q) {
                 $q->where('is_active', true)->orderBy('sort_order');

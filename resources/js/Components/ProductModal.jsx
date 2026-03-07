@@ -281,6 +281,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                                     selectedVariant={selectedVariant}
                                     onBookingChange={setBookingData}
                                     dateOnly={isDateOnlyBooking}
+                                    productOpen={product.open_time || null}
+                                    productClose={product.close_time || null}
                                 />
                             )}
 

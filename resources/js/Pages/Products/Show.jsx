@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import Navbar from '@/Components/Navbar';
 import Footer from '@/Components/Footer';
 import CartDrawer from '@/Components/CartDrawer';
@@ -16,6 +16,14 @@ const ProductShow = ({ product }) => {
     const [bookingData, setBookingData] = useState({ date: null, startTime: null, endTime: null });
 
     const isCoworkingBooking = ['share_desk', 'private_room'].includes(product.product_type);
+
+    // Operational hours: product-specific → global setting → hardcoded default
+    const { operationalHours } = usePage().props;
+    const openTime  = product.open_time  || operationalHours?.open  || '08:00';
+    const closeTime = product.close_time || operationalHours?.close || '17:00';
+
+    // Share desk capacity from variant stock_quantity (default 8)
+    const shareDeskCapacity = product.variants?.[0]?.stock_quantity ?? 8;
 
     // Auto-select first variant
     useEffect(() => {
@@ -623,6 +631,504 @@ const ProductShow = ({ product }) => {
                                     <li>Voucher diskon 10% layanan Dokter Finance</li>
                                     <li>Voucher diskon 20% meeting room & coworking</li>
                                 </ul>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Share Desk Package Details */}
+                {(product.product_type === 'share_desk' ||
+                  product.title?.toLowerCase().includes('share desk') ||
+                  product.title?.toLowerCase().includes('coworking')) && (
+                    <div className="mt-12">
+                        {/* Intro Section */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Kerja Produktif Tanpa Perlu Kantor Sendiri</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Capek kerja dari rumah tapi belum siap sewa kantor? Share desk adalah solusinya! Nikmati suasana kerja yang profesional, fasilitas lengkap, dan komunitas produktif hanya dengan biaya per jam. Cocok untuk freelancer, remote worker, mahasiswa, hingga pebisnis yang butuh tempat kerja fleksibel tanpa komitmen jangka panjang.
+                            </p>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Share Desk?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-4">
+                                Share desk adalah layanan coworking space dengan konsep meja bersama. Anda dapat menggunakan meja kerja yang nyaman di area coworking Kaspa Space bersama pengguna lain. Sistem booking per jam memberikan fleksibilitas penuh — bayar sesuai kebutuhan, tanpa perlu kontrak bulanan. Anda dapat membaca blogs ini:
+                            </p>
+                            <ul className="list-disc list-inside text-left max-w-4xl mx-auto text-blue-600 mb-8 space-y-1">
+                                <li>
+                                    <a href="https://kaspaspace.com/5-tips-memilih-workspace-yang-tepat-untuk-pertumbuhan-bisnis-anda" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        5 Tips Memilih Workspace yang Tepat untuk Pertumbuhan Bisnis Anda
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://kaspaspace.com/perbandingan-sewa-kantor-coworking-space-vs-ruko-atau-rumah-untuk-kantor" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        Perbandingan Sewa Kantor: Coworking Space vs Ruko atau Rumah untuk Kantor
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Package Tables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Fasilitas Share Desk */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Fasilitas Share Desk</h3>
+                                </div>
+                                <div className="px-4 py-3">
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-2">
+                                        <li>Meja & kursi kerja yang ergonomis dan nyaman</li>
+                                        <li>Wi-Fi kecepatan tinggi 100 Mbps</li>
+                                        <li>Stop kontak & colokan USB di setiap meja</li>
+                                        <li>AC sentral ruangan yang sejuk</li>
+                                        <li>Loker penyimpanan barang (opsional)</li>
+                                        <li>Pantry dengan air minum, teh, dan kopi</li>
+                                        <li>Area lobi dan ruang santai</li>
+                                        <li>Mushola & toilet bersih</li>
+                                        <li>Akses eBook di eLibrary Kaspa Space</li>
+                                        <li>Lingkungan kerja yang kondusif dan bebas distraksi</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Paket Share Desk (Durasi) */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Paket Durasi & Harga</h3>
+                                </div>
+
+                                {/* Paket Per Jam */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Booking Per Jam:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Fleksibel mulai dari 1 jam hingga seharian</li>
+                                        <li>Bayar sesuai durasi yang dipilih</li>
+                                        <li>Booking real-time, langsung konfirmasi</li>
+                                        <li>Tidak perlu kontrak atau komitmen jangka panjang</li>
+                                    </ul>
+                                </div>
+
+                                {/* Ketentuan */}
+                                <div className="px-4 py-3">
+                                    <p className="font-bold text-gray-800 mb-2">Ketentuan Penggunaan:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Jam operasional {openTime} – {closeTime} WIB</li>
+                                        <li>Kapasitas meja hingga {shareDeskCapacity} orang bersamaan</li>
+                                        <li>Meja dikembalikan tepat waktu sesuai durasi booking</li>
+                                        <li>Dilarang membawa makanan berbau tajam</li>
+                                        <li>Jaga kebersihan dan ketenangan bersama</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keunggulan */}
+                        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Kenapa Pilih Share Desk Kaspa Space?</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Lokasi Strategis</p>
+                                    <p className="text-sm text-gray-700">Berada di kawasan Sinarmas, Surabaya — mudah dijangkau dari berbagai penjuru kota dengan akses parkir yang luas.</p>
+                                </div>
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Komunitas Produktif</p>
+                                    <p className="text-sm text-gray-700">Bergabung dengan komunitas profesional, freelancer, dan entrepreneur yang saling mendukung dan berkolaborasi.</p>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <p className="font-bold text-gray-800 mb-2">Harga Terjangkau</p>
+                                    <p className="text-sm text-gray-700">Investasi produktivitas yang hemat — lebih murah dari kafe, lebih profesional dari rumah, lebih fleksibel dari kantor sendiri.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Private Room Package Details */}
+                {(product.product_type === 'private_room' ||
+                  product.title?.toLowerCase().includes('private room') ||
+                  product.title?.toLowerCase().includes('meeting room')) && (
+                    <div className="mt-12">
+                        {/* Intro Section */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Rapat Profesional, Meeting Privat, Presentasi Berkesan</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Butuh ruangan privat untuk meeting klien, rapat tim, presentasi, sesi pelatihan, atau diskusi penting? Private room Kaspa Space hadir dengan ruangan nyaman yang dilengkapi peralatan presentasi lengkap. Booking per jam, tidak perlu kontrak bulanan — fleksibel sesuai kebutuhan Anda.
+                            </p>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Private Room?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-4">
+                                Private room adalah ruangan meeting eksklusif yang dapat disewa per jam. Ruangan ini terpisah dari area coworking umum, memberikan privasi penuh untuk diskusi rahasia, negosiasi bisnis, atau sesi kerja yang membutuhkan konsentrasi tinggi. Kapasitas ruangan mendukung rapat kecil hingga presentasi tim. Anda dapat membaca blogs ini:
+                            </p>
+                            <ul className="list-disc list-inside text-left max-w-4xl mx-auto text-blue-600 mb-8 space-y-1">
+                                <li>
+                                    <a href="https://kaspaspace.com/mengenal-service-office-space-layanan-ruang-kantor-modern" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        Mengenal Service Office Space - Layanan Ruang Kantor Modern
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://kaspaspace.com/sewa-kantor-kaspa-space-lebih-untung-daripada-sewa-ruko" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        Sewa Kantor Kaspa Space Lebih Untung daripada Sewa Ruko
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Package Tables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Fasilitas Private Room */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Fasilitas Private Room</h3>
+                                </div>
+                                <div className="px-4 py-3">
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-2">
+                                        <li>Ruangan privat eksklusif dengan pintu tertutup</li>
+                                        <li>Meja rapat panjang dengan kursi yang nyaman</li>
+                                        <li>Layar proyektor / TV screen untuk presentasi</li>
+                                        <li>Whiteboard untuk brainstorming</li>
+                                        <li>Wi-Fi kecepatan tinggi 100 Mbps</li>
+                                        <li>AC ruangan yang dapat diatur suhu</li>
+                                        <li>Stop kontak & colokan USB</li>
+                                        <li>Pantry dengan air minum, teh, dan kopi</li>
+                                        <li>Layanan resepsionis untuk menyambut tamu</li>
+                                        <li>Papan nama (name tag) di pintu ruangan</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Paket Private Room */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Paket Durasi & Harga</h3>
+                                </div>
+
+                                {/* Booking Per Jam */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Booking Per Jam:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Tersedia dari 1 jam hingga seharian penuh</li>
+                                        <li>Harga bervariasi sesuai durasi yang dipilih</li>
+                                        <li>Booking real-time, langsung terkonfirmasi</li>
+                                        <li>Ekslusif satu ruangan per sesi — tidak berbagi</li>
+                                    </ul>
+                                </div>
+
+                                {/* Ketentuan */}
+                                <div className="px-4 py-3">
+                                    <p className="font-bold text-gray-800 mb-2">Ketentuan Penggunaan:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Jam operasional {openTime} – {closeTime} WIB</li>
+                                        <li>Kapasitas ruangan hingga 10 orang</li>
+                                        <li>Ruangan dikembalikan tepat waktu sesuai booking</li>
+                                        <li>Dilarang membawa makanan berbau tajam ke dalam ruangan</li>
+                                        <li>Pemesanan dapat dilakukan minimal 30 menit sebelumnya</li>
+                                        <li>Hanya 1 sesi booking per waktu yang sama (ekslusif)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keunggulan */}
+                        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Ideal Digunakan Untuk</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Rapat & Meeting</p>
+                                    <p className="text-sm text-gray-700">Meeting klien, rapat tim internal, negosiasi bisnis, atau diskusi proyek yang membutuhkan privasi penuh.</p>
+                                </div>
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Presentasi & Pelatihan</p>
+                                    <p className="text-sm text-gray-700">Sesi presentasi produk, pelatihan karyawan, workshop kecil, atau demo kepada klien dengan peralatan lengkap.</p>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <p className="font-bold text-gray-800 mb-2">Wawancara & Konsultasi</p>
+                                    <p className="text-sm text-gray-700">Sesi wawancara kandidat, konsultasi bisnis privat, atau coaching session yang membutuhkan suasana tenang dan profesional.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Print Package Details */}
+                {(product.product_type === 'print' ||
+                  product.title?.toLowerCase().includes('print')) && (
+                    <div className="mt-12">
+                        {/* Intro Section */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Cetak Dokumen Cepat, Murah, dan Berkualitas</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Butuh cetak dokumen, proposal, laporan, atau materi presentasi? Kaspa Space menyediakan layanan print dengan printer berkualitas tinggi, berbagai pilihan ukuran kertas, dan hasil cetak yang tajam. Tidak perlu keluar jauh — cetak langsung di tempat kerja Anda!
+                            </p>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Layanan Print Kaspa Space?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-4">
+                                Layanan print Kaspa Space adalah jasa cetak dokumen yang tersedia di area coworking. Anda dapat mencetak berbagai jenis dokumen mulai dari hitam-putih hingga berwarna, ukuran A4 hingga A3. Harga per lembar yang terjangkau membuat layanan ini cocok untuk kebutuhan cetak harian maupun dalam jumlah banyak.
+                            </p>
+                        </div>
+
+                        {/* Package Tables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Fasilitas Print */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Fasilitas Layanan Print</h3>
+                                </div>
+                                <div className="px-4 py-3">
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-2">
+                                        <li>Printer laser & inkjet berkualitas tinggi</li>
+                                        <li>Cetak hitam-putih dan berwarna (full color)</li>
+                                        <li>Ukuran kertas A4, F4, dan A3</li>
+                                        <li>Berbagai jenis kertas: HVS, glossy, art paper</li>
+                                        <li>Hasil cetak tajam dan tahan lama</li>
+                                        <li>Layanan print dari USB, email, atau Google Drive</li>
+                                        <li>Proses cetak cepat, tidak perlu antri lama</li>
+                                        <li>Tersedia di area coworking Kaspa Space</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Paket Print */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Paket & Harga</h3>
+                                </div>
+
+                                {/* Paket */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Pilihan Paket:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Harga per lembar, bayar sesuai jumlah cetakan</li>
+                                        <li>Tersedia paket hitam-putih dan berwarna</li>
+                                        <li>Tidak ada minimum order</li>
+                                        <li>Bisa cetak dari 1 lembar hingga ratusan lembar</li>
+                                    </ul>
+                                </div>
+
+                                {/* Ketentuan */}
+                                <div className="px-4 py-3">
+                                    <p className="font-bold text-gray-800 mb-2">Ketentuan Penggunaan:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>File dikirim via USB, email, atau Google Drive</li>
+                                        <li>Format file: PDF, Word, Excel, JPG, PNG</li>
+                                        <li>Pembayaran dilakukan di kasir Kaspa Space</li>
+                                        <li>Tidak melayani cetak konten ilegal atau SARA</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keunggulan */}
+                        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Kenapa Cetak di Kaspa Space?</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Harga Terjangkau</p>
+                                    <p className="text-sm text-gray-700">Harga per lembar yang bersaing — lebih hemat dibanding warnet atau print shop biasa, tanpa mengorbankan kualitas.</p>
+                                </div>
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Praktis & Cepat</p>
+                                    <p className="text-sm text-gray-700">Cetak dokumen langsung di tempat kerja Anda. Tidak perlu keluar gedung — hemat waktu dan tenaga untuk hal yang lebih penting.</p>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <p className="font-bold text-gray-800 mb-2">Kualitas Terjamin</p>
+                                    <p className="text-sm text-gray-700">Printer berkualitas dengan tinta original menghasilkan cetakan yang tajam, jelas, dan profesional untuk setiap dokumen Anda.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Materai Package Details */}
+                {(product.product_type === 'materai' ||
+                  product.title?.toLowerCase().includes('materai')) && (
+                    <div className="mt-12">
+                        {/* Intro Section */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Materai Resmi, Praktis, dan Terpercaya</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Perlu materai untuk dokumen perjanjian, kontrak kerja, surat kuasa, atau dokumen resmi lainnya? Kaspa Space menyediakan materai tempel dan e-Materai resmi yang sah secara hukum. Tersedia langsung di lokasi tanpa perlu antri di kantor pos atau minimarket.
+                            </p>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Layanan Materai Kaspa Space?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-4">
+                                Layanan materai Kaspa Space menyediakan materai tempel resmi keluaran Peruri yang sah digunakan untuk berbagai dokumen hukum dan perjanjian. Materai tersedia dalam nominal sesuai ketentuan berlaku dan dapat langsung dibeli di area kasir Kaspa Space tanpa prosedur yang rumit.
+                            </p>
+                        </div>
+
+                        {/* Package Tables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Informasi Materai */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Informasi Layanan Materai</h3>
+                                </div>
+                                <div className="px-4 py-3">
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-2">
+                                        <li>Materai tempel resmi keluaran Peruri</li>
+                                        <li>Sah secara hukum sesuai UU Bea Materai</li>
+                                        <li>Tersedia dalam nominal sesuai ketentuan berlaku</li>
+                                        <li>Pembelian satuan maupun dalam jumlah banyak</li>
+                                        <li>Dapat digunakan untuk berbagai dokumen resmi</li>
+                                        <li>Proses pembelian cepat di kasir Kaspa Space</li>
+                                        <li>Stok selalu tersedia setiap hari kerja</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Kegunaan Materai */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Dokumen yang Memerlukan Materai</h3>
+                                </div>
+
+                                {/* Dokumen Perjanjian */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Dokumen Perjanjian & Kontrak:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Surat perjanjian kerja sama bisnis</li>
+                                        <li>Kontrak kerja karyawan</li>
+                                        <li>Perjanjian sewa menyewa</li>
+                                        <li>MOU (Memorandum of Understanding)</li>
+                                    </ul>
+                                </div>
+
+                                {/* Dokumen Hukum */}
+                                <div className="px-4 py-3">
+                                    <p className="font-bold text-gray-800 mb-2">Dokumen Hukum & Administrasi:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Surat kuasa dan surat pernyataan</li>
+                                        <li>Kuitansi pembayaran di atas nominal tertentu</li>
+                                        <li>Dokumen pengajuan kredit & pinjaman</li>
+                                        <li>Akta jual beli dan dokumen notaris</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keunggulan */}
+                        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Kenapa Beli Materai di Kaspa Space?</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Resmi & Terpercaya</p>
+                                    <p className="text-sm text-gray-700">Materai yang kami jual adalah produk resmi Peruri, terjamin keasliannya dan sah digunakan untuk semua dokumen hukum.</p>
+                                </div>
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Praktis & Mudah</p>
+                                    <p className="text-sm text-gray-700">Beli materai langsung di kasir Kaspa Space tanpa perlu antri panjang. Cocok untuk Anda yang sedang bekerja di area coworking.</p>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <p className="font-bold text-gray-800 mb-2">Stok Selalu Ada</p>
+                                    <p className="text-sm text-gray-700">Stok materai selalu kami jaga agar tersedia setiap hari kerja. Tidak perlu khawatir kehabisan saat dokumen Anda mendesak.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Legalitas Usaha Package Details */}
+                {(product.product_type === 'legalitas' ||
+                  product.title?.toLowerCase().includes('legalitas')) && (
+                    <div className="mt-12">
+                        {/* Intro Section */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Urus Legalitas Usaha Tanpa Ribet</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Usaha Anda sudah berjalan tapi belum punya legalitas? Atau baru ingin memulai bisnis dengan fondasi hukum yang kuat? Kaspa Space hadir membantu pengurusan legalitas usaha mulai dari SKDU, PKP, pendirian CV, PT, hingga PT Perorangan — proses cepat, harga transparan, dan didampingi tenaga profesional.
+                            </p>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Layanan Legalitas Usaha Kaspa Space?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-4">
+                                Layanan legalitas usaha Kaspa Space adalah jasa pengurusan dokumen hukum dan perizinan usaha yang ditangani oleh tim profesional berpengalaman. Mulai dari surat keterangan domisili usaha, pengajuan PKP, hingga pendirian badan usaha seperti CV dan PT — semua dapat diurus dengan mudah tanpa harus bolak-balik ke instansi pemerintah.
+                            </p>
+                        </div>
+
+                        {/* Package Tables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Daftar Paket & Harga dari database */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Paket & Harga Legalitas Usaha</h3>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {product.variants && product.variants.length > 0 ? (
+                                        product.variants.map((variant) => (
+                                            <div key={variant.id} className="flex items-center justify-between px-4 py-3">
+                                                <span className="text-sm text-gray-700 font-medium">{variant.name}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-blue-700">
+                                                        Rp{Number(variant.price).toLocaleString('id-ID')}
+                                                    </span>
+                                                    {variant.compare_price && Number(variant.compare_price) > Number(variant.price) && (
+                                                        <div className="text-xs text-gray-400 line-through">
+                                                            Rp{Number(variant.compare_price).toLocaleString('id-ID')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                                            Hubungi kami untuk informasi harga
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Yang Sudah Termasuk */}
+                            <div className="border border-gray-300 rounded-lg overflow-hidden">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                    <h3 className="font-bold text-center text-gray-800">Yang Sudah Termasuk</h3>
+                                </div>
+
+                                {/* Umum */}
+                                <div className="px-4 py-3 border-b border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Layanan Umum:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Konsultasi awal gratis sebelum pengurusan</li>
+                                        <li>Pendampingan proses dari awal hingga selesai</li>
+                                        <li>Update status pengurusan secara berkala</li>
+                                        <li>Dokumen digital dikirim via WhatsApp / email</li>
+                                    </ul>
+                                </div>
+
+                                {/* Ketentuan */}
+                                <div className="px-4 py-3">
+                                    <p className="font-bold text-gray-800 mb-2">Ketentuan:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Estimasi waktu sesuai jenis layanan yang dipilih</li>
+                                        <li>Siapkan dokumen persyaratan yang diminta</li>
+                                        <li>Biaya pemerintah (PNBP) di luar harga layanan</li>
+                                        <li>Hubungi kami untuk konsultasi lebih lanjut</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keunggulan */}
+                        <div className="mt-6 border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Kenapa Urus Legalitas di Kaspa Space?</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Proses Cepat</p>
+                                    <p className="text-sm text-gray-700">Tim kami yang berpengalaman memastikan pengurusan dokumen berjalan efisien tanpa bolak-balik ke instansi yang membuang waktu Anda.</p>
+                                </div>
+                                <div className="px-4 py-4 border-b md:border-b-0 md:border-r border-gray-200">
+                                    <p className="font-bold text-gray-800 mb-2">Harga Transparan</p>
+                                    <p className="text-sm text-gray-700">Tidak ada biaya tersembunyi. Harga yang tertera adalah harga final layanan kami — Anda tahu persis berapa yang harus dibayar.</p>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <p className="font-bold text-gray-800 mb-2">Didampingi Profesional</p>
+                                    <p className="text-sm text-gray-700">Setiap proses didampingi tenaga ahli yang berpengalaman di bidang hukum dan perizinan usaha, memastikan dokumen Anda sah dan sesuai regulasi.</p>
+                                </div>
                             </div>
                         </div>
                     </div>

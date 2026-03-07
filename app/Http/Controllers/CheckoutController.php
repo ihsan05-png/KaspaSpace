@@ -87,29 +87,32 @@ class CheckoutController extends Controller
         $discount = Discount::where('code', $validated['discount_code'])->first();
         
         if ($discount && $discount->isValid($subtotal)) {
+            // Cek apakah user sudah pernah menggunakan diskon ini (per email)
+            if ($discount->hasBeenUsedByEmail($validated['customer_email'])) {
+                return back()->withErrors(['discount_code' => 'Kode diskon ini sudah pernah digunakan oleh akun Anda']);
+            }
+
             // Load produk yang dipilih untuk diskon
             $discount->load('products');
-            
-            // Check apakah diskon berlaku untuk produk di cart
+
+            // Hitung subtotal yang eligible untuk diskon
+            $applicableSubtotal = $subtotal; // default: semua item
             if ($discount->products->count() > 0) {
-                $cartProductIds = array_column($cart, 'product_id');
                 $discountProductIds = $discount->products->pluck('id')->toArray();
-                
-                // Check apakah ada produk di cart yang bisa dapat diskon
-                $hasApplicableProduct = false;
-                foreach ($cartProductIds as $productId) {
-                    if (in_array($productId, $discountProductIds)) {
-                        $hasApplicableProduct = true;
-                        break;
+
+                $applicableSubtotal = 0;
+                foreach ($cart as $item) {
+                    if (in_array($item['product_id'], $discountProductIds)) {
+                        $applicableSubtotal += $item['subtotal'];
                     }
                 }
 
-                if (!$hasApplicableProduct) {
+                if ($applicableSubtotal <= 0) {
                     return back()->withErrors(['discount_code' => 'Diskon ini tidak berlaku untuk produk di keranjang Anda']);
                 }
             }
-            
-            $discountAmount = $discount->calculateDiscount($subtotal);
+
+            $discountAmount = $discount->calculateDiscount($applicableSubtotal);
         } else {
             return back()->withErrors(['discount_code' => 'Kode diskon tidak valid']);
         }
@@ -181,7 +184,7 @@ class CheckoutController extends Controller
 
                         $productType = $product->product_type;
                         $bookedSlots = OrderItem::whereHas('product', fn($q) => $q->where('product_type', $productType))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
                             ->where('stock_reduced', true)
                             ->where('stock_restored', false)
                             ->where('booking_start_at', '<=', $endAt)
@@ -196,7 +199,7 @@ class CheckoutController extends Controller
                     } else {
                         // Validate share_desk and private_room
                         $bookedDesks = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
                             ->where('stock_reduced', true)
                             ->where('stock_restored', false)
                             ->where('booking_start_at', '<', $endAt)
@@ -204,7 +207,7 @@ class CheckoutController extends Controller
                             ->sum('quantity');
 
                         $privateRoomBooked = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'private_room'))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled']))
+                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
                             ->where('stock_reduced', true)
                             ->where('stock_restored', false)
                             ->where('booking_start_at', '<', $endAt)
@@ -234,9 +237,11 @@ class CheckoutController extends Controller
                 $product = $product ?? \App\Models\Product::find($item['product_id']);
 
                 if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
-                    // Booking products: availability is date/time-specific (checked above via time-slot overlap).
-                    // Only set the flag so the availability queries count this booking; do NOT touch global stock_quantity.
-                    $orderItem->update(['stock_reduced' => true]);
+                    // Booking products: only hold the slot immediately for manual payment methods.
+                    // For Midtrans, stock_reduced is set ONLY after payment is confirmed via webhook/checkStatus.
+                    if ($validated['payment_method'] !== 'midtrans') {
+                        $orderItem->update(['stock_reduced' => true]);
+                    }
                 } else {
                     // Non-booking products: use global stock as before
                     $variant = \App\Models\ProductVariant::find($item['variant_id']);

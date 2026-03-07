@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 
 export default function BookingDateTimePicker({
@@ -6,7 +7,19 @@ export default function BookingDateTimePicker({
     selectedVariant,
     onBookingChange,
     dateOnly = false, // For private_office: only date, no time picker
+    productOpen = null,  // Per-product open time (overrides global)
+    productClose = null, // Per-product close time (overrides global)
 }) {
+    const { operationalHours } = usePage().props;
+    // Use per-product hours if set, otherwise fall back to global Payment Settings
+    const OPEN  = productOpen  || operationalHours?.open  || '08:00';
+    const CLOSE = productClose || operationalHours?.close || '17:00';
+
+    // Parse open/close to minutes for validation
+    const [openH, openM]   = OPEN.split(':').map(Number);
+    const [closeH, closeM] = CLOSE.split(':').map(Number);
+    const openMinutes  = openH  * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedStartTime, setSelectedStartTime] = useState('');
     const [availabilityStatus, setAvailabilityStatus] = useState(null); // null | 'checking' | 'available' | 'unavailable'
@@ -29,9 +42,9 @@ export default function BookingDateTimePicker({
         return end;
     };
 
-    // Calculate max start time so booking ends by 17:00
-    const maxStartHour = 17 - durationHours;
-    const maxStartTime = `${String(Math.floor(maxStartHour)).padStart(2, '0')}:${maxStartHour % 1 === 0 ? '00' : '30'}`;
+    // Calculate max start time so booking ends by CLOSE time
+    const maxStartMinutes = closeMinutes - durationHours * 60;
+    const maxStartTime = `${String(Math.floor(maxStartMinutes / 60)).padStart(2, '0')}:${String(maxStartMinutes % 60).padStart(2, '0')}`;
 
     // Calculate end time from start time + duration
     const calculateEndTime = (startTime) => {
@@ -129,9 +142,9 @@ export default function BookingDateTimePicker({
         const startMinutes = h * 60 + m;
         const endMinutes = startMinutes + durationHours * 60;
 
-        if (startMinutes < 8 * 60) {
+        if (startMinutes < openMinutes) {
             setAvailabilityStatus('unavailable');
-            setAvailabilityMessage('Jam operasional dimulai dari 08:00');
+            setAvailabilityMessage(`Jam operasional dimulai dari ${OPEN}`);
             onBookingChange({ date: selectedDate, startTime: null, endTime: null });
             return;
         }
@@ -148,9 +161,9 @@ export default function BookingDateTimePicker({
             }
         }
 
-        if (endMinutes > 17 * 60) {
+        if (endMinutes > closeMinutes) {
             setAvailabilityStatus('unavailable');
-            setAvailabilityMessage(`Booking melebihi jam operasional. Maksimal jam mulai: ${maxStartTime}`);
+            setAvailabilityMessage(`Booking melebihi jam operasional (${CLOSE}). Maksimal jam mulai: ${maxStartTime}`);
             onBookingChange({ date: selectedDate, startTime: null, endTime: null });
             return;
         }
@@ -191,9 +204,9 @@ export default function BookingDateTimePicker({
         });
     }, [dateOnly, selectedDate, selectedStartTime, durationHours, productId]);
 
-    // Calculate minimum start time: if today, use current time (rounded up); otherwise 08:00
+    // Calculate minimum start time: if today, use current time (rounded up); otherwise OPEN time
     const getMinStartTime = () => {
-        if (selectedDate !== today) return '08:00';
+        if (selectedDate !== today) return OPEN;
         const now = new Date();
         const h = now.getHours();
         const m = now.getMinutes();
@@ -202,8 +215,7 @@ export default function BookingDateTimePicker({
         const finalH = roundedM >= 60 ? h + 1 : h;
         const finalM = roundedM >= 60 ? 0 : roundedM;
         const minTime = `${String(finalH).padStart(2, '0')}:${String(finalM).padStart(2, '0')}`;
-        // Don't go below 08:00
-        return minTime < '08:00' ? '08:00' : minTime;
+        return minTime < OPEN ? OPEN : minTime;
     };
     const minStartTime = getMinStartTime();
 
@@ -233,7 +245,7 @@ export default function BookingDateTimePicker({
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Jam Mulai <span className="text-red-500">*</span>
                         <span className="text-xs font-normal text-gray-500 ml-1">
-                            (Operasional 08:00 - 17:00)
+                            (Operasional {OPEN} - {CLOSE})
                         </span>
                     </label>
                     <input

@@ -5,65 +5,45 @@ import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Eye, Trash2
 const AdminScheduleDashboard = ({ auth, schedules = [], flash }) => {
     const [uploadedFile, setUploadedFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [parseError, setParseError] = useState(null);
     const [previewData, setPreviewData] = useState([]);
     const [showPreview, setShowPreview] = useState(false);
     const fileInputRef = useRef(null);
 
     const { data, setData, post, processing, errors, reset } = useForm({
-        excel_file: null,
         schedule_data: []
     });
 
-    // Process Excel file
+    // Kirim file ke backend untuk di-parse
     const processExcelFile = async (file) => {
         setIsProcessing(true);
-        
-        const reader = new FileReader();
-        
-        return new Promise((resolve, reject) => {
-            reader.onload = async (e) => {
-                try {
-                    // Dynamic import to avoid bundle size issues
-                    const XLSX = await import('xlsx');
-                    
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                    
-                    // Transform data to match Laravel model structure
-                    const transformedData = jsonData.map((row, index) => ({
-                        id: index + 1,
-                        room: row['ROOM'] || row['Room'] || '',
-                        date: row['DATE'] || row['Date'] || '',
-                        type: row['TYPE'] || row['Type'] || '',
-                        sub_type: row['SUB TYPE'] || row['Sub Type'] || row['subType'] || '',
-                        occupancy: row['OCCUPANCY'] || row['Occupancy'] || '',
-                        inv: row['INV'] || row['Inv'] || '',
-                        check_in: row['CHECK-IN'] || row['Check In'] || row['checkIn'] || '',
-                        check_out: row['CHECK-OUT'] || row['Check Out'] || row['checkOut'] || ''
-                    }));
-                    
-                    setPreviewData(transformedData);
-                    setData('schedule_data', transformedData);
-                    setShowPreview(true);
-                    setIsProcessing(false);
-                    resolve(transformedData);
-                } catch (error) {
-                    console.error('Error processing Excel file:', error);
-                    setIsProcessing(false);
-                    reject(error);
-                }
-            };
-            
-            reader.onerror = () => {
-                setIsProcessing(false);
-                reject(new Error('Failed to read file'));
-            };
-            
-            reader.readAsArrayBuffer(file);
-        });
+        setParseError(null);
+
+        const formData = new FormData();
+        formData.append('excel_file', file);
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+
+        try {
+            const response = await fetch('/admin/schedule/parse-excel', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Gagal memproses file.');
+            }
+
+            setPreviewData(result.data);
+            setData('schedule_data', result.data);
+            setShowPreview(true);
+        } catch (error) {
+            setParseError(error.message);
+            console.error('Error processing Excel file:', error);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     // Handle file selection
@@ -71,26 +51,21 @@ const AdminScheduleDashboard = ({ auth, schedules = [], flash }) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Validate file type
         const allowedTypes = [
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'application/vnd.ms-excel'
         ];
-        
+
         if (!allowedTypes.includes(file.type)) {
-            alert('Please select a valid Excel file (.xlsx or .xls)');
+            setParseError('Pilih file Excel yang valid (.xlsx atau .xls)');
             return;
         }
 
         setUploadedFile(file);
-        setData('excel_file', file);
-        
-        try {
-            await processExcelFile(file);
-        } catch (error) {
-            alert('Error processing file. Please check the format and try again.');
-            console.error(error);
-        }
+        setPreviewData([]);
+        setShowPreview(false);
+
+        await processExcelFile(file);
     };
 
     // Submit data to Laravel backend
@@ -220,8 +195,8 @@ const AdminScheduleDashboard = ({ auth, schedules = [], flash }) => {
                                             Upload .xlsx or .xls file with schedule data
                                         </p>
                                         
-                                        {errors.excel_file && (
-                                            <p className="text-red-500 text-sm mt-2">{errors.excel_file}</p>
+                                        {(errors.excel_file || parseError) && (
+                                            <p className="text-red-500 text-sm mt-2">{errors.excel_file || parseError}</p>
                                         )}
                                     </div>
                                 </div>

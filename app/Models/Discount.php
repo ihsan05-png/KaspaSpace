@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Models\Order;
 
 class Discount extends Model
 {
@@ -150,6 +151,28 @@ class Discount extends Model
     public function incrementUsage()
     {
         $this->increment('usage_count');
+    }
+
+    /**
+     * Decrement usage count (when order is cancelled)
+     */
+    public function decrementUsage()
+    {
+        if ($this->usage_count > 0) {
+            $this->decrement('usage_count');
+        }
+    }
+
+    /**
+     * Check if a specific email has already used this discount in an active (non-cancelled) order
+     */
+    public function hasBeenUsedByEmail($email)
+    {
+        return Order::where('discount_id', $this->id)
+            ->where('customer_email', $email)
+            ->where('status', '!=', 'cancelled')
+            ->where('payment_status', '!=', 'cancelled')
+            ->exists();
     }
 
     /**

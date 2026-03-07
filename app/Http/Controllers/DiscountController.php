@@ -33,7 +33,7 @@ class DiscountController extends Controller
             ->orderBy('title')
             ->get();
 
-        $users = User::select('id', 'name', 'email')
+        $users = User::select('id', 'name', 'email', 'agreed_terms', 'agreed_privacy', 'agreed_at')
             ->where('role', 'user')
             ->orderBy('name')
             ->get();
@@ -98,7 +98,7 @@ class DiscountController extends Controller
             ->orderBy('title')
             ->get();
 
-        $users = User::select('id', 'name', 'email')
+        $users = User::select('id', 'name', 'email', 'agreed_terms', 'agreed_privacy', 'agreed_at')
             ->where('role', 'user')
             ->orderBy('name')
             ->get();
@@ -191,8 +191,9 @@ class DiscountController extends Controller
         $request->validate([
             'code' => 'required|string',
             'subtotal' => 'required|numeric|min:0',
-            'product_ids' => 'nullable|array',
-            'product_ids.*' => 'integer'
+            'cart_items' => 'nullable|array',
+            'cart_items.*.product_id' => 'integer',
+            'cart_items.*.subtotal' => 'numeric|min:0',
         ]);
 
         $discount = Discount::where('code', $request->code)->first();
@@ -207,35 +208,32 @@ class DiscountController extends Controller
         // Load produk yang dipilih untuk diskon
         $discount->load('products');
 
-        // Check apakah diskon berlaku untuk produk di cart
-        if ($request->has('product_ids') && !empty($request->product_ids)) {
-            $cartProductIds = $request->product_ids;
-            
-            // Jika diskon memiliki produk yang dipilih (tidak berlaku untuk semua)
-            if ($discount->products->count() > 0) {
-                $discountProductIds = $discount->products->pluck('id')->toArray();
-                
-                // Check apakah ada produk di cart yang bisa dapat diskon
-                $hasApplicableProduct = false;
-                foreach ($cartProductIds as $productId) {
-                    if (in_array($productId, $discountProductIds)) {
-                        $hasApplicableProduct = true;
-                        break;
-                    }
-                }
+        // Hitung subtotal yang eligible untuk diskon
+        $applicableSubtotal = $request->subtotal; // default: semua item
+        $cartItems = $request->cart_items ?? [];
 
-                if (!$hasApplicableProduct) {
-                    return response()->json([
-                        'valid' => false,
-                        'message' => 'Diskon ini tidak berlaku untuk produk di keranjang Anda'
-                    ], 400);
+        if ($discount->products->count() > 0 && !empty($cartItems)) {
+            $discountProductIds = $discount->products->pluck('id')->toArray();
+
+            // Hitung subtotal hanya dari produk yang eligible
+            $applicableSubtotal = 0;
+            foreach ($cartItems as $item) {
+                if (in_array($item['product_id'], $discountProductIds)) {
+                    $applicableSubtotal += $item['subtotal'];
                 }
+            }
+
+            if ($applicableSubtotal <= 0) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Diskon ini tidak berlaku untuk produk di keranjang Anda'
+                ], 400);
             }
         }
 
         if (!$discount->isValid($request->subtotal)) {
             $message = 'Kode diskon tidak valid';
-            
+
             if (!$discount->is_active) {
                 $message = 'Kode diskon tidak aktif';
             } elseif ($discount->isExpired()) {
@@ -245,14 +243,28 @@ class DiscountController extends Controller
             } elseif ($discount->min_purchase && $request->subtotal < $discount->min_purchase) {
                 $message = 'Minimum pembelian Rp ' . number_format($discount->min_purchase, 0, ',', '.');
             }
-            
+
             return response()->json([
                 'valid' => false,
                 'message' => $message
             ], 400);
         }
 
-        $discountAmount = $discount->calculateDiscount($request->subtotal);
+        // Cek per-user usage untuk user yang sudah login
+        if (auth()->check() && $discount->hasBeenUsedByEmail(auth()->user()->email)) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Kode diskon ini sudah pernah digunakan oleh akun Anda'
+            ], 400);
+        }
+
+        // Hitung diskon hanya dari subtotal produk yang eligible
+        $discountAmount = $discount->calculateDiscount($applicableSubtotal);
+
+        // Product IDs yang eligible (kosong = berlaku semua produk)
+        $applicableProductIds = $discount->products->count() > 0
+            ? $discount->products->pluck('id')->toArray()
+            : [];
 
         return response()->json([
             'valid' => true,
@@ -263,6 +275,8 @@ class DiscountController extends Controller
                 'type' => $discount->type,
                 'value' => $discount->value,
                 'amount' => $discountAmount,
+                'applicable_subtotal' => $applicableSubtotal,
+                'applicable_product_ids' => $applicableProductIds,
                 'formatted_amount' => 'Rp ' . number_format($discountAmount, 0, ',', '.')
             ],
             'message' => 'Kode diskon berhasil diterapkan'

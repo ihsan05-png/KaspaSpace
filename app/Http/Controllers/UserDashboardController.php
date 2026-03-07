@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Order;
 use App\Models\Discount;
+use App\Models\Agreement;
+use Illuminate\Support\Facades\DB;
 
 class UserDashboardController extends Controller
 {
@@ -14,10 +16,18 @@ class UserDashboardController extends Controller
         $user = auth()->user();
         
         // Auto-cancel orders that are unpaid for more than 24 hours
-        Order::where('customer_email', $user->email)
+        $ordersToAutoCancel = Order::where('customer_email', $user->email)
             ->where('payment_status', 'unpaid')
             ->where('created_at', '<', now()->subHours(24))
-            ->update(['payment_status' => 'cancelled']);
+            ->with('discount')
+            ->get();
+
+        foreach ($ordersToAutoCancel as $orderToCancel) {
+            $orderToCancel->update(['payment_status' => 'cancelled']);
+            if ($orderToCancel->discount_id && $orderToCancel->discount) {
+                $orderToCancel->discount->decrementUsage();
+            }
+        }
         
         // Get user orders
         $orders = Order::where('customer_email', $user->email)
@@ -26,7 +36,16 @@ class UserDashboardController extends Controller
             ->limit(5)
             ->get();
         
-        // Get active discounts (available for user)
+        // Get IDs of discounts already used by this user in active (non-cancelled) orders
+        $usedDiscountIds = Order::where('customer_email', $user->email)
+            ->whereNotNull('discount_id')
+            ->where('status', '!=', 'cancelled')
+            ->where('payment_status', '!=', 'cancelled')
+            ->pluck('discount_id')
+            ->unique()
+            ->toArray();
+
+        // Get active discounts (available for user, excluding already used ones)
         $activeDiscounts = Discount::where('is_active', true)
             ->where(function($query) {
                 $query->whereNull('start_date')
@@ -44,6 +63,7 @@ class UserDashboardController extends Controller
                 // Hanya tampilkan diskon yang user-nya di-assign ke user ini
                 $q->where('users.id', $user->id);
             })
+            ->whereNotIn('id', $usedDiscountIds)
             ->with('users')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -68,25 +88,57 @@ class UserDashboardController extends Controller
                 'totalOrders' => $totalOrders,
                 'completedOrders' => $completedOrders,
                 'totalSpent' => $totalSpent
-            ]
+            ],
+            'agreement' => [
+                'agreed_terms'      => $user->agreed_terms,
+                'agreed_privacy'    => $user->agreed_privacy,
+                'agreed_newsletter' => $user->agreed_newsletter,
+                'agreed_at'         => $user->agreed_at?->format('d M Y, H:i'),
+            ],
+            'termsAgreement'   => Agreement::getTerms(),
+            'privacyAgreement' => Agreement::getPrivacy(),
         ]);
     }
 
     public function cancelOrder(Order $order)
     {
         $user = auth()->user();
-        
+
         // Verify order belongs to user and can be cancelled
         if ($order->customer_email !== $user->email) {
             return back()->with('error', 'Order tidak ditemukan');
         }
-        
-        if ($order->payment_status !== 'unpaid') {
+
+        if ($order->payment_status !== 'unpaid' || $order->status === 'cancelled') {
             return back()->with('error', 'Order tidak dapat dibatalkan');
         }
-        
-        $order->update(['payment_status' => 'cancelled']);
-        
+
+        $order->load('discount', 'items.product', 'items.productVariant');
+
+        DB::transaction(function () use ($order) {
+            $order->update(['status' => 'cancelled', 'payment_status' => 'cancelled']);
+
+            // Restore booking slots / stock so the schedule is freed immediately
+            foreach ($order->items as $item) {
+                if ($item->stock_reduced && !$item->stock_restored) {
+                    $isBookingProduct = $item->product &&
+                        in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+
+                    if ($isBookingProduct) {
+                        $item->update(['stock_restored' => true]);
+                    } elseif ($item->variant_id && $item->productVariant) {
+                        $item->productVariant->incrementStock($item->quantity);
+                        $item->update(['stock_restored' => true]);
+                    }
+                }
+            }
+        });
+
+        // Kembalikan usage diskon jika order menggunakan diskon
+        if ($order->discount_id && $order->discount) {
+            $order->discount->decrementUsage();
+        }
+
         return back()->with('success', 'Order berhasil dibatalkan');
     }
 }

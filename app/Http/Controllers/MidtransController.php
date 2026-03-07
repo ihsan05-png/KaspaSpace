@@ -171,6 +171,11 @@ class MidtransController extends Controller
                 $this->reduceStockForOrder($order);
             }
 
+            // Restore stock if order cancelled and was previously paid
+            if ($order->status === 'cancelled' && $previousStatus === 'paid') {
+                $this->restoreStockForOrder($order);
+            }
+
             Log::info('Order status updated', [
                 'order_id' => $order->id,
                 'payment_status' => $order->payment_status,
@@ -219,7 +224,17 @@ class MidtransController extends Controller
 
                 // Update order status based on Midtrans response
                 $oldStatus = $order->payment_status;
-                
+
+                // If order was manually cancelled (status='cancelled'), don't let Midtrans 'pending'
+                // override it. Only actual payment confirmation (capture/settlement) can take effect.
+                if ($order->status === 'cancelled' && in_array($transactionStatus, ['pending'])) {
+                    return response()->json([
+                        'order_id' => $order->id,
+                        'payment_status' => $order->payment_status,
+                        'status' => $order->status,
+                    ]);
+                }
+
                 if ($transactionStatus == 'capture') {
                     if ($fraudStatus == 'accept') {
                         $order->payment_status = 'paid'; // Paid = already verified for Midtrans
@@ -238,7 +253,7 @@ class MidtransController extends Controller
                     $order->status = 'cancelled';
                 }
 
-                if ($oldStatus !== $order->payment_status) {
+                if ($oldStatus !== $order->payment_status || $order->isDirty('status')) {
                     $order->save();
                     Log::info('Order status updated from Midtrans API', [
                         'order_id' => $order->id,
@@ -249,6 +264,11 @@ class MidtransController extends Controller
                     // Reduce stock when payment becomes paid
                     if ($oldStatus !== 'paid' && $order->payment_status === 'paid') {
                         $this->reduceStockForOrder($order);
+                    }
+
+                    // Restore stock if cancelled and was previously paid
+                    if ($order->status === 'cancelled' && $oldStatus === 'paid') {
+                        $this->restoreStockForOrder($order);
                     }
                 }
 
@@ -275,6 +295,30 @@ class MidtransController extends Controller
                 'error' => 'Gagal memeriksa status: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Restore stock for order items when payment is cancelled/expired
+     */
+    protected function restoreStockForOrder(Order $order)
+    {
+        DB::transaction(function () use ($order) {
+            $order->load('items.productVariant', 'items.product');
+
+            foreach ($order->items as $item) {
+                if ($item->stock_reduced && !$item->stock_restored) {
+                    $isBookingProduct = $item->product &&
+                        in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+
+                    if ($isBookingProduct) {
+                        $item->update(['stock_restored' => true]);
+                    } elseif ($item->variant_id && $item->productVariant) {
+                        $item->productVariant->incrementStock($item->quantity);
+                        $item->update(['stock_restored' => true]);
+                    }
+                }
+            }
+        });
     }
 
     /**

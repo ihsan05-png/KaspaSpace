@@ -110,13 +110,13 @@ export default function CheckoutIndex({
         setDiscountError('');
 
         try {
-            // Extract product IDs from cart
-            const productIds = cart.map(item => item.product_id);
-            
             const response = await axios.post('/validate-discount', {
                 code: discountCode,
                 subtotal: subtotal,
-                product_ids: productIds
+                cart_items: cart.map(item => ({
+                    product_id: item.product_id,
+                    subtotal: item.subtotal,
+                })),
             });
 
             if (response.data.valid) {
@@ -666,6 +666,22 @@ export default function CheckoutIndex({
                                                 -{appliedDiscount.formatted_amount}
                                             </span>
                                         </div>
+                                        {/* Keterangan produk yang dapat diskon */}
+                                        {appliedDiscount.applicable_product_ids?.length > 0 && (() => {
+                                            const discountedItems = cart.filter(item =>
+                                                appliedDiscount.applicable_product_ids.includes(item.product_id)
+                                            );
+                                            return discountedItems.length > 0 ? (
+                                                <div className="mt-2 pt-2 border-t border-green-200">
+                                                    <p className="text-xs text-green-700 font-medium mb-1">Berlaku untuk:</p>
+                                                    {discountedItems.map((item, idx) => (
+                                                        <p key={idx} className="text-xs text-green-600">
+                                                            • {item.product_name}{item.variant_name ? ` - ${item.variant_name}` : ''}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            ) : null;
+                                        })()}
                                     </div>
                                 ) : (
                                     <div className="border border-gray-200 rounded-lg p-3">

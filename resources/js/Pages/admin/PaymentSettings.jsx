@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { router, usePage, Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    QrCode, 
-    Building2, 
+import {
+    QrCode,
+    Building2,
     Upload,
     Save,
     CheckCircle,
     AlertCircle,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Clock
 } from 'lucide-react';
 
-export default function AdminPaymentSettings({ 
+export default function AdminPaymentSettings({
     settings = {
         qris_image: '/storage/qris-default.png',
         bank_name: 'Bank BCA',
         account_number: '1234567890',
-        account_name: 'PT Toko Kita'
+        account_name: 'PT Toko Kita',
+        open_time: '08:00',
+        close_time: '17:00',
     }
 }) {
     const [formData, setFormData] = useState({
@@ -24,6 +27,14 @@ export default function AdminPaymentSettings({
         account_number: settings.account_number || '',
         account_name: settings.account_name || ''
     });
+
+    // Jam operasional
+    const [hours, setHours] = useState({
+        open_time:  settings.open_time  || '08:00',
+        close_time: settings.close_time || '17:00',
+    });
+    const [hoursSaving, setHoursSaving] = useState(false);
+    const [hoursMsg, setHoursMsg]       = useState(null); // { ok, text }
 
     const [qrisImage, setQrisImage] = useState(settings.qris_image);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -71,6 +82,24 @@ export default function AdminPaymentSettings({
                 }));
             }
         }
+    };
+
+    const handleSaveHours = (e) => {
+        e.preventDefault();
+        setHoursSaving(true);
+        setHoursMsg(null);
+        router.post('/admin/paymentsettings/operational-hours', hours, {
+            onSuccess: () => {
+                setHoursSaving(false);
+                setHoursMsg({ ok: true, text: 'Jam operasional berhasil disimpan!' });
+                setTimeout(() => setHoursMsg(null), 3000);
+            },
+            onError: (errs) => {
+                setHoursSaving(false);
+                const msg = Object.values(errs)[0] || 'Gagal menyimpan';
+                setHoursMsg({ ok: false, text: msg });
+            }
+        });
     };
 
     const handleSaveBankSettings = (e) => {
@@ -354,6 +383,70 @@ export default function AdminPaymentSettings({
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Jam Operasional */}
+            <div className="mt-6 bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Jam Operasional</h2>
+                        <p className="text-sm text-gray-600">Jam buka dan tutup untuk pemesanan di semua cabang</p>
+                    </div>
+                </div>
+
+                {hoursMsg && (
+                    <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${hoursMsg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {hoursMsg.ok ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                        {hoursMsg.text}
+                    </div>
+                )}
+
+                <form onSubmit={handleSaveHours} className="flex flex-wrap items-end gap-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Jam Buka <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="time"
+                            value={hours.open_time}
+                            onChange={e => setHours(prev => ({ ...prev, open_time: e.target.value }))}
+                            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-900"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Jam Tutup <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="time"
+                            value={hours.close_time}
+                            onChange={e => setHours(prev => ({ ...prev, close_time: e.target.value }))}
+                            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-900"
+                            required
+                        />
+                    </div>
+                    <div className="pb-0.5">
+                        <p className="text-xs text-gray-500 mb-2">
+                            Saat ini: <span className="font-semibold text-gray-700">{hours.open_time} – {hours.close_time}</span>
+                        </p>
+                        <button
+                            type="submit"
+                            disabled={hoursSaving}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition"
+                        >
+                            <Save className="w-4 h-4" />
+                            {hoursSaving ? 'Menyimpan...' : 'Simpan Jam Operasional'}
+                        </button>
+                    </div>
+                </form>
+
+                <p className="mt-4 text-xs text-gray-400">
+                    Perubahan akan langsung berlaku di halaman booking untuk semua pengguna.
+                </p>
             </div>
 
             {/* Preview Section */}

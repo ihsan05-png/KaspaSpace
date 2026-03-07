@@ -26,6 +26,8 @@ class Product extends Model
         'meta_keywords',
         'category_id',
         'product_type',
+        'open_time',
+        'close_time',
     ];
 
     protected $casts = [

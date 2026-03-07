@@ -47,7 +47,8 @@ export default function AdminOrdersIndex({ orders = [] }) {
         const syncMidtransOrders = async () => {
             const midtransOrders = orders.filter(o =>
                 o.payment_method === 'midtrans' &&
-                o.payment_status === 'unpaid'
+                o.payment_status === 'unpaid' &&
+                o.status !== 'cancelled'
             );
 
             if (midtransOrders.length === 0) return;
@@ -106,9 +107,12 @@ export default function AdminOrdersIndex({ orders = [] }) {
             order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
             order.customer_name.toLowerCase().includes(searchTerm.toLowerCase());
         
-        const matchesFilter = 
-            filterStatus === 'all' || 
-            order.payment_status === filterStatus;
+        const matchesFilter =
+            filterStatus === 'all' ||
+            (filterStatus === 'menunggu' && (order.payment_status === 'pending' || order.payment_status === 'unpaid') && !isCancelled(order)) ||
+            (filterStatus === 'terbayar' && (order.payment_status === 'paid' || order.payment_status === 'verified') && !isCancelled(order) && order.payment_status !== 'refunded') ||
+            (filterStatus === 'dibatalkan' && isCancelled(order)) ||
+            (filterStatus === 'refunded' && order.payment_status === 'refunded');
 
         return matchesSearch && matchesFilter;
     });
@@ -303,49 +307,49 @@ export default function AdminOrdersIndex({ orders = [] }) {
     };
 
     const getStatusBadge = (paymentStatus, orderStatus) => {
-        // Jika cancelled, tampilkan Gagal
-        if (orderStatus === 'cancelled') {
+        // Dibatalkan: either field signals cancellation
+        if (orderStatus === 'cancelled' || paymentStatus === 'cancelled') {
             return (
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                     <XCircle className="w-3 h-3" />
-                    Gagal
+                    Dibatalkan
                 </span>
             );
         }
 
         const statuses = {
-            pending: { 
-                color: 'bg-yellow-100 text-yellow-800', 
-                text: 'Menunggu', 
-                icon: Clock 
+            pending: {
+                color: 'bg-yellow-100 text-yellow-800',
+                text: 'Menunggu',
+                icon: Clock
             },
-            unpaid: { 
-                color: 'bg-yellow-100 text-yellow-800', 
-                text: 'Menunggu', 
-                icon: Clock 
+            unpaid: {
+                color: 'bg-yellow-100 text-yellow-800',
+                text: 'Menunggu',
+                icon: Clock
             },
-            paid: { 
-                color: 'bg-green-100 text-green-800', 
-                text: 'Terbayar', 
-                icon: CheckCircle 
+            paid: {
+                color: 'bg-green-100 text-green-800',
+                text: 'Terbayar',
+                icon: CheckCircle
             },
-            verified: { 
-                color: 'bg-green-100 text-green-800', 
-                text: 'Terverifikasi', 
-                icon: CheckCircle 
+            verified: {
+                color: 'bg-green-100 text-green-800',
+                text: 'Terbayar',
+                icon: CheckCircle
             },
-            rejected: { 
-                color: 'bg-red-100 text-red-800', 
-                text: 'Ditolak', 
-                icon: XCircle 
+            rejected: {
+                color: 'bg-red-100 text-red-800',
+                text: 'Dibatalkan',
+                icon: XCircle
             },
-            refunded: { 
-                color: 'bg-gray-100 text-gray-800', 
-                text: 'Refund', 
-                icon: XCircle 
+            refunded: {
+                color: 'bg-purple-100 text-purple-800',
+                text: 'Refund',
+                icon: RefreshCw
             }
         };
-        
+
         const status_info = statuses[paymentStatus] || statuses.pending;
         const Icon = status_info.icon;
         
@@ -385,14 +389,15 @@ export default function AdminOrdersIndex({ orders = [] }) {
         });
     };
 
+    const isCancelled = (o) => o.status === 'cancelled' || o.payment_status === 'cancelled';
     const stats = {
-        pending: orders.filter(o => o.payment_status === 'pending' || o.payment_status === 'unpaid').length,
-        paid: orders.filter(o => o.payment_status === 'unpaid' && ['cash', 'qris', 'bank_transfer'].includes(o.payment_method)).length, // Manual payment methods need verification
-        verified: orders.filter(o =>
-            o.payment_status === 'verified' ||
-            (o.payment_status === 'paid' && o.payment_method === 'midtrans') || // Midtrans paid = auto verified
-            (o.payment_status === 'paid' && ['cash', 'qris', 'bank_transfer'].includes(o.payment_method)) // Manual methods paid = verified
-        ).length
+        menunggu: orders.filter(o => (o.payment_status === 'pending' || o.payment_status === 'unpaid') && !isCancelled(o)).length,
+        terbayar: orders.filter(o => (o.payment_status === 'paid' || o.payment_status === 'verified') && !isCancelled(o) && o.payment_status !== 'refunded').length,
+        dibatalkan: orders.filter(o => isCancelled(o)).length,
+        refunded: orders.filter(o => o.payment_status === 'refunded').length,
+        pendapatan: orders
+            .filter(o => (o.payment_status === 'paid' || o.payment_status === 'verified') && !isCancelled(o) && o.payment_status !== 'refunded')
+            .reduce((sum, o) => sum + Number(o.total), 0),
     };
 
     return (
@@ -406,36 +411,58 @@ export default function AdminOrdersIndex({ orders = [] }) {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-yellow-600 text-sm font-medium">Menunggu Pembayaran</p>
-                            <p className="text-2xl font-bold text-yellow-900 mt-1">{stats.pending}</p>
+                            <p className="text-yellow-600 text-sm font-medium">Menunggu</p>
+                            <p className="text-2xl font-bold text-yellow-900 mt-1">{stats.menunggu}</p>
                         </div>
                         <Clock className="w-10 h-10 text-yellow-400" />
-                    </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-blue-600 text-sm font-medium">Perlu Verifikasi</p>
-                            <p className="text-2xl font-bold text-blue-900 mt-1">{stats.paid}</p>
-                        </div>
-                        <Clock className="w-10 h-10 text-blue-400" />
                     </div>
                 </div>
 
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-green-600 text-sm font-medium">Terverifikasi</p>
-                            <p className="text-2xl font-bold text-green-900 mt-1">{stats.verified}</p>
+                            <p className="text-green-600 text-sm font-medium">Terbayar</p>
+                            <p className="text-2xl font-bold text-green-900 mt-1">{stats.terbayar}</p>
                         </div>
                         <CheckCircle className="w-10 h-10 text-green-400" />
                     </div>
                 </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-red-600 text-sm font-medium">Dibatalkan</p>
+                            <p className="text-2xl font-bold text-red-900 mt-1">{stats.dibatalkan}</p>
+                        </div>
+                        <XCircle className="w-10 h-10 text-red-400" />
+                    </div>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-purple-600 text-sm font-medium">Refund</p>
+                            <p className="text-2xl font-bold text-purple-900 mt-1">{stats.refunded}</p>
+                        </div>
+                        <RefreshCw className="w-10 h-10 text-purple-400" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Pendapatan Card */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-5 mb-6 flex items-center justify-between">
+                <div>
+                    <p className="text-blue-100 text-sm font-medium mb-1">Total Pendapatan</p>
+                    <p className="text-3xl font-bold text-white">
+                        Rp{stats.pendapatan.toLocaleString('id-ID')}
+                    </p>
+                    <p className="text-blue-200 text-xs mt-1">Dari {stats.terbayar} pesanan terbayar</p>
+                </div>
+                <DollarSign className="w-14 h-14 text-blue-300 opacity-80" />
             </div>
 
             {/* Filters */}
@@ -459,10 +486,10 @@ export default function AdminOrdersIndex({ orders = [] }) {
                             className="pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
                         >
                             <option value="all">Semua Status</option>
-                            <option value="pending">Menunggu</option>
-                            <option value="paid">Perlu Verifikasi</option>
-                            <option value="verified">Terverifikasi</option>
-                            <option value="rejected">Ditolak</option>
+                            <option value="menunggu">Menunggu</option>
+                            <option value="terbayar">Terbayar</option>
+                            <option value="dibatalkan">Dibatalkan</option>
+                            <option value="refunded">Refund</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     </div>
@@ -532,7 +559,7 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                {['cash', 'qris', 'bank_transfer'].includes(order.payment_method) && order.payment_status !== 'paid' && order.status !== 'cancelled' && (
+                                                {['cash', 'qris', 'bank_transfer'].includes(order.payment_method) && order.payment_status !== 'paid' && !isCancelled(order) && order.payment_status !== 'refunded' && (
                                                     <select
                                                         value={order.payment_status}
                                                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
@@ -542,6 +569,15 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                                         <option value="paid">Lunas</option>
                                                         <option value="cancelled">Batal</option>
                                                     </select>
+                                                )}
+                                                {(order.payment_status === 'paid' || order.payment_status === 'verified') && !isCancelled(order) && (
+                                                    <button
+                                                        onClick={() => handleStatusChange(order.id, 'refunded')}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+                                                    >
+                                                        <RefreshCw className="w-3.5 h-3.5" />
+                                                        Refund
+                                                    </button>
                                                 )}
                                                 <button
                                                     onClick={() => openModal(order)}
@@ -936,6 +972,9 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                 )}
                                 {confirmData.newStatus === 'cancelled' && (
                                     <span className="text-red-600">✕ Dibatalkan</span>
+                                )}
+                                {confirmData.newStatus === 'refunded' && (
+                                    <span className="text-purple-600">↩ Refund</span>
                                 )}
                             </p>
                             
