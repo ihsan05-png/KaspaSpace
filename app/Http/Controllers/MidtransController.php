@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Jobs\SendBookingCompletedNotification;
 use App\Models\Order;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -169,6 +170,16 @@ class MidtransController extends Controller
             // Reduce stock when payment becomes paid
             if ($previousStatus !== 'paid' && $order->payment_status === 'paid') {
                 $this->reduceStockForOrder($order);
+
+                // Dispatch job kirim email saat booking selesai (tepat di booking_end_at)
+                $order->load('items.product');
+                foreach ($order->items as $item) {
+                    if ($item->booking_end_at && $item->product &&
+                        in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
+                        SendBookingCompletedNotification::dispatch($item)
+                            ->delay($item->booking_end_at);
+                    }
+                }
             }
 
             // Restore stock if order cancelled and was previously paid

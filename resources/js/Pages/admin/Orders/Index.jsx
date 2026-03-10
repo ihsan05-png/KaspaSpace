@@ -147,11 +147,13 @@ export default function AdminOrdersIndex({ orders = [] }) {
             selectedOrder?.payment_method === 'bank_transfer' ? 'Transfer Bank' :
             selectedOrder?.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder?.payment_method;
 
-        const statusText = selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified' ? 'Lunas' :
-            selectedOrder?.status === 'cancelled' ? 'Dibatalkan' : 'Menunggu Pembayaran';
+        const statusText = (selectedOrder?.status === 'cancelled' || selectedOrder?.payment_status === 'cancelled') ? 'Dibatalkan' :
+            selectedOrder?.payment_status === 'refunded' ? 'Refund' :
+            (selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified') ? 'Terbayar' : 'Menunggu Pembayaran';
 
-        const statusClass = selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified' ? 'status-paid' :
-            selectedOrder?.status === 'cancelled' ? 'status-cancelled' : 'status-unpaid';
+        const statusClass = (selectedOrder?.status === 'cancelled' || selectedOrder?.payment_status === 'cancelled') ? 'status-cancelled' :
+            selectedOrder?.payment_status === 'refunded' ? 'status-refunded' :
+            (selectedOrder?.payment_status === 'paid' || selectedOrder?.payment_status === 'verified') ? 'status-paid' : 'status-unpaid';
 
         const itemsHtml = selectedOrder?.items?.map(item => {
             let bookingInfo = '';
@@ -212,6 +214,7 @@ export default function AdminOrdersIndex({ orders = [] }) {
                     .status-paid { background: #dcfce7; color: #166534; }
                     .status-unpaid { background: #fef9c3; color: #854d0e; }
                     .status-cancelled { background: #fee2e2; color: #991b1b; }
+                    .status-refunded { background: #f3e8ff; color: #6b21a8; }
                     @media print { body { padding: 20px; } }
                 </style>
             </head>
@@ -814,11 +817,13 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                             selectedOrder.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder.payment_method
                                         }</p>
                                         <p><strong>Status:</strong> <span className={`status-badge ${
-                                            selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified' ? 'status-paid' :
-                                            selectedOrder.status === 'cancelled' ? 'status-cancelled' : 'status-unpaid'
+                                            (selectedOrder.status === 'cancelled' || selectedOrder.payment_status === 'cancelled') ? 'status-cancelled' :
+                                            selectedOrder.payment_status === 'refunded' ? 'status-refunded' :
+                                            (selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified') ? 'status-paid' : 'status-unpaid'
                                         }`}>{
-                                            selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified' ? 'Lunas' :
-                                            selectedOrder.status === 'cancelled' ? 'Dibatalkan' : 'Menunggu Pembayaran'
+                                            (selectedOrder.status === 'cancelled' || selectedOrder.payment_status === 'cancelled') ? 'Dibatalkan' :
+                                            selectedOrder.payment_status === 'refunded' ? 'Refund' :
+                                            (selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'verified') ? 'Terbayar' : 'Menunggu Pembayaran'
                                         }</span></p>
                                     </div>
                                     <div>

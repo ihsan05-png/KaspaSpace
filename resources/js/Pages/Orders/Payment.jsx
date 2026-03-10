@@ -60,7 +60,8 @@ export default function Payment({ order, paymentSettings = null }) {
     useEffect(() => {
         const calculateTimeRemaining = () => {
             const createdAt = new Date(order.created_at);
-            const expiryTime = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+            const expiryMinutes = order.is_booking_product ? 10 : 24 * 60;
+            const expiryTime = new Date(createdAt.getTime() + expiryMinutes * 60 * 1000);
             const now = new Date();
             const diff = expiryTime - now;
 
@@ -77,8 +78,11 @@ export default function Payment({ order, paymentSettings = null }) {
             const hours = Math.floor(diff / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
-            setTimeRemaining(`${hours}j ${minutes}m ${seconds}d`);
+
+            setTimeRemaining(order.is_booking_product
+                ? `${minutes}m ${seconds}d`
+                : `${hours}j ${minutes}m ${seconds}d`
+            );
         };
 
         calculateTimeRemaining();
@@ -323,7 +327,7 @@ export default function Payment({ order, paymentSettings = null }) {
                                 )}
                                 {isExpired && paymentStatus === 'unpaid' && (
                                     <div className="mt-3 text-red-600 font-semibold">
-                                        ⚠️ Pesanan ini telah expired (lebih dari 24 jam)
+                                        ⚠️ Pesanan ini telah expired (lebih dari {order.is_booking_product ? '10 menit' : '24 jam'})
                                     </div>
                                 )}
                             </div>
@@ -478,7 +482,7 @@ export default function Payment({ order, paymentSettings = null }) {
                             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
                                 <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
                                 <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
-                                <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran ({order.is_booking_product ? '10 menit' : '24 jam'})</p>
                                 <a
                                     href="/"
                                     className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -566,7 +570,7 @@ export default function Payment({ order, paymentSettings = null }) {
                                     <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
                                         <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
                                         <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
-                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran ({order.is_booking_product ? '10 menit' : '24 jam'})</p>
                                         <a
                                             href="/"
                                             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -677,7 +681,7 @@ export default function Payment({ order, paymentSettings = null }) {
                                     <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
                                         <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
                                         <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
-                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran ({order.is_booking_product ? '10 menit' : '24 jam'})</p>
                                         <a
                                             href="/"
                                             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -812,7 +816,7 @@ export default function Payment({ order, paymentSettings = null }) {
                                     <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
                                         <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
                                         <p className="text-red-900 font-bold text-lg mb-2">Pesanan Expired</p>
-                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran (24 jam)</p>
+                                        <p className="text-red-700 mb-4">Pesanan ini telah melewati batas waktu pembayaran ({order.is_booking_product ? '10 menit' : '24 jam'})</p>
                                         <a
                                             href="/"
                                             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"

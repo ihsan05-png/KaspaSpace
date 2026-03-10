@@ -24,6 +24,8 @@ const LandingPage = ({ latestMedia = [] }) => {
     const [showDropdown, setShowDropdown] = useState(false);
     const searchRef = useRef(null);
     const abortRef = useRef(null);
+    const debounceRef = useRef(null);
+    const cacheRef = useRef(new Map());
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -40,33 +42,46 @@ const LandingPage = ({ latestMedia = [] }) => {
         setSearchQuery(q);
 
         if (abortRef.current) abortRef.current.abort();
+        if (debounceRef.current) clearTimeout(debounceRef.current);
 
-        if (q.trim().length < 1) {
+        if (q.trim().length < 2) {
             setSearchResults([]);
             setShowDropdown(false);
             setIsSearching(false);
             return;
         }
 
+        const key = q.trim().toLowerCase();
+
+        // Jika hasil sudah ada di cache, tampilkan langsung tanpa request
+        if (cacheRef.current.has(key)) {
+            setSearchResults(cacheRef.current.get(key));
+            setIsSearching(false);
+            setShowDropdown(true);
+            return;
+        }
+
         setIsSearching(true);
         setShowDropdown(true);
 
-        // Langsung kirim tanpa debounce, AbortController cancel request lama otomatis
-        abortRef.current = new AbortController();
-        fetch(`/api/products/search?q=${encodeURIComponent(q)}`, {
-            signal: abortRef.current.signal,
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                setSearchResults(data);
-                setIsSearching(false);
+        debounceRef.current = setTimeout(() => {
+            abortRef.current = new AbortController();
+            fetch(`/api/products/search?q=${encodeURIComponent(key)}`, {
+                signal: abortRef.current.signal,
             })
-            .catch((err) => {
-                if (err.name !== "AbortError") {
-                    setSearchResults([]);
+                .then((res) => res.json())
+                .then((data) => {
+                    cacheRef.current.set(key, data);
+                    setSearchResults(data);
                     setIsSearching(false);
-                }
-            });
+                })
+                .catch((err) => {
+                    if (err.name !== "AbortError") {
+                        setSearchResults([]);
+                        setIsSearching(false);
+                    }
+                });
+        }, 400);
     };
 
     const handleSelectProduct = (slug) => {

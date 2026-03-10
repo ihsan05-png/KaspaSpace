@@ -322,8 +322,12 @@ class CheckoutController extends Controller
             ];
         }
 
+        $isBookingProduct = $order->items->contains(fn($item) =>
+            $item->product && in_array($item->product->product_type, ['share_desk', 'private_room'])
+        );
+
         return Inertia::render('Orders/Payment', [
-            'order' => $order,
+            'order' => array_merge($order->toArray(), ['is_booking_product' => $isBookingProduct]),
             'paymentSettings' => $paymentSettings,
         ]);
     }

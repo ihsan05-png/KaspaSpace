@@ -468,7 +468,7 @@ export default function UserDashboard({ orders, activeDiscounts, stats, agreemen
                                                                 Bayar Sekarang →
                                                             </a>
                                                         )}
-                                                        {(order.payment_status === 'paid' || order.payment_status === 'verified') && (
+                                                        {(order.payment_status === 'paid' || order.payment_status === 'verified' || order.payment_status === 'refunded' || order.status === 'cancelled' || order.payment_status === 'cancelled') && (
                                                             <a
                                                                 href={`/orders/${order.id}/download-invoice`}
                                                                 target="_blank"

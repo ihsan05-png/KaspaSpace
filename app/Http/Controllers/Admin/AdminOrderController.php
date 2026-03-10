@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendBookingCompletedNotification;
 use App\Models\Order;
 use App\Models\ProductVariant;
 use Inertia\Inertia;
@@ -114,6 +115,16 @@ class AdminOrderController extends Controller
                     }
                 }
             });
+
+            // Dispatch job kirim email saat booking selesai (tepat di booking_end_at)
+            $order->refresh()->load('items.product');
+            foreach ($order->items as $item) {
+                if ($item->booking_end_at && $item->product &&
+                    in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
+                    SendBookingCompletedNotification::dispatch($item)
+                        ->delay($item->booking_end_at);
+                }
+            }
         }
 
         // Jika cancelled, set status juga ke cancelled
@@ -244,6 +255,16 @@ class AdminOrderController extends Controller
                     }
                 }
             });
+
+            // Dispatch job kirim email saat booking selesai (tepat di booking_end_at)
+            $order->refresh()->load('items.product');
+            foreach ($order->items as $item) {
+                if ($item->booking_end_at && $item->product &&
+                    in_array($item->product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
+                    SendBookingCompletedNotification::dispatch($item)
+                        ->delay($item->booking_end_at);
+                }
+            }
         }
 
         $order->update([
@@ -315,15 +336,16 @@ class AdminOrderController extends Controller
             default => $order->payment_method
         };
 
-        $statusText = match($order->payment_status) {
-            'paid', 'verified' => 'Lunas',
-            'cancelled' => 'Dibatalkan',
+        $isCancelled = $order->status === 'cancelled' || $order->payment_status === 'cancelled';
+        $statusText = $isCancelled ? 'Dibatalkan' : match($order->payment_status) {
+            'paid', 'verified' => 'Terbayar',
+            'refunded' => 'Refund',
             default => 'Menunggu Pembayaran'
         };
 
-        $statusStyle = match($order->payment_status) {
+        $statusStyle = $isCancelled ? 'background: #fee2e2; color: #991b1b;' : match($order->payment_status) {
             'paid', 'verified' => 'background: #dcfce7; color: #166534;',
-            'cancelled' => 'background: #fee2e2; color: #991b1b;',
+            'refunded' => 'background: #f3e8ff; color: #6b21a8;',
             default => 'background: #fef9c3; color: #854d0e;'
         };
 

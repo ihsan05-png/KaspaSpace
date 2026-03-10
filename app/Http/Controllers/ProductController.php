@@ -19,19 +19,9 @@ class ProductController extends Controller
             return response()->json([]);
         }
 
-        $words = preg_split('/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY);
-
         $products = Product::with(['category:id,name,slug', 'variants:id,product_id,price,is_active'])
             ->where('is_active', true)
-            ->where(function ($q) use ($words) {
-                foreach ($words as $word) {
-                    $q->where(function ($q2) use ($word) {
-                        $q2->where('title', 'like', "%{$word}%")
-                           ->orWhere('subtitle', 'like', "%{$word}%")
-                           ->orWhere('description', 'like', "%{$word}%");
-                    });
-                }
-            })
+            ->whereRaw('MATCH(title, subtitle) AGAINST(? IN BOOLEAN MODE)', [$query . '*'])
             ->select('id', 'title', 'slug', 'base_price', 'images', 'category_id')
             ->orderBy('sort_order')
             ->limit(6)

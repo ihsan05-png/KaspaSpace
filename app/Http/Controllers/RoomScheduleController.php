@@ -127,16 +127,14 @@ class RoomScheduleController extends Controller
                 $totalPrivateRooms = $this->getTotalStockFromDatabase($privateRoom);
                 $roomBlocked = $privateRoomBooked || $shareDeskBooked;
 
-                // Determine which booking to show info from
-                $displayBooking = $privateRoomBooking ?? $shareDeskBooking;
-
+                // Hanya tampilkan INV & waktu jika ada booking private room langsung
                 $meetingRoomItems[] = [
                     'sub_type' => $privateRoom->title,
                     'capacity' => $roomBlocked ? "0/{$totalPrivateRooms} ruangan" : "{$totalPrivateRooms}/{$totalPrivateRooms} ruangan",
                     'occupancy' => $roomBlocked ? 'FULL' : 'AVAILABLE',
-                    'inv' => $displayBooking ? ($displayBooking->order->order_number ?? '-') : '-',
-                    'check_in' => $displayBooking && $displayBooking->booking_start_at ? Carbon::parse($displayBooking->booking_start_at)->format('g:iA') : '',
-                    'check_out' => $displayBooking && $displayBooking->booking_end_at ? Carbon::parse($displayBooking->booking_end_at)->format('g:iA') : '',
+                    'inv' => $privateRoomBooking ? ($privateRoomBooking->order->order_number ?? '-') : '-',
+                    'check_in' => $privateRoomBooking && $privateRoomBooking->booking_start_at ? Carbon::parse($privateRoomBooking->booking_start_at)->format('g:iA') : '',
+                    'check_out' => $privateRoomBooking && $privateRoomBooking->booking_end_at ? Carbon::parse($privateRoomBooking->booking_end_at)->format('g:iA') : '',
                 ];
             }
 

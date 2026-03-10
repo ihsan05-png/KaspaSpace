@@ -191,14 +191,17 @@ const LandingAdmin = ({ stats: statsData, recentOrders = [] }) => {
                     {formatCurrency(order.total)}
                   </span>
                   <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                    order.payment_status === 'paid' 
-                      ? 'bg-green-100 text-green-800' 
-                      : order.payment_status === 'unpaid' && order.status !== 'cancelled'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
+                    (order.status === 'cancelled' || order.payment_status === 'cancelled')
+                      ? 'bg-red-100 text-red-800'
+                      : order.payment_status === 'refunded'
+                      ? 'bg-purple-100 text-purple-800'
+                      : (order.payment_status === 'paid' || order.payment_status === 'verified')
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {order.payment_status === 'paid' ? 'Dibayar' : 
-                     order.payment_status === 'unpaid' && order.status !== 'cancelled' ? 'Menunggu' : 'Gagal'}
+                    {(order.status === 'cancelled' || order.payment_status === 'cancelled') ? 'Dibatalkan' :
+                     order.payment_status === 'refunded' ? 'Refund' :
+                     (order.payment_status === 'paid' || order.payment_status === 'verified') ? 'Terbayar' : 'Menunggu'}
                   </span>
                   <button
                     onClick={() => handleDeleteOrder(order.id, order.order_number)}

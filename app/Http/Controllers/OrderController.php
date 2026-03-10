@@ -17,11 +17,15 @@ class OrderController extends Controller
      */
     public function showPayment(Order $order)
     {
-        $order->load('items');
-        
+        $order->load('items.product');
+
         // Ambil payment settings
         $paymentSettings = PaymentSetting::first();
-        
+
+        $isBookingProduct = $order->items->contains(fn($item) =>
+            $item->product && in_array($item->product->product_type, ['share_desk', 'private_room'])
+        );
+
         return Inertia::render('Orders/Payment', [
             'order' => [
                 'id' => $order->id,
@@ -35,6 +39,7 @@ class OrderController extends Controller
                 'payment_proof' => $order->payment_proof ? Storage::url($order->payment_proof) : null,
                 'created_at' => $order->created_at,
                 'paid_at' => $order->paid_at,
+                'is_booking_product' => $isBookingProduct,
             ],
             'qrisImage' => $paymentSettings && $paymentSettings->qris_image 
                 ? Storage::url($paymentSettings->qris_image) 
