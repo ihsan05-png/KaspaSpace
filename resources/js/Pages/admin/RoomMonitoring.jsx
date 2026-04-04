@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import RoomAvailabilitySchedule from '@/Components/RoomAvailabilitySchedule';
 import axios from 'axios';
-import { Activity, CheckCircle, XCircle, Database, RefreshCw, LayoutGrid, DoorOpen } from 'lucide-react';
+import { Activity, RefreshCw, LayoutGrid, DoorOpen, Building2, Users } from 'lucide-react';
 
 const RoomMonitoring = () => {
     const [summary, setSummary] = useState([]);
@@ -33,21 +33,23 @@ const RoomMonitoring = () => {
         return () => clearInterval(intervalRef.current);
     }, []);
 
-    // Pisahkan meja (share_desk) dan ruangan (private_room + private_office)
-    const deskItems   = summary.filter(s => s.product_type === 'share_desk');
-    const roomItems   = summary.filter(s => ['private_room', 'private_office'].includes(s.product_type));
+    const deskItems        = summary.filter(s => s.product_type === 'share_desk');
+    const privateRoomItems = summary.filter(s => s.product_type === 'private_room');
+    const officeItems      = summary.filter(s => s.product_type === 'private_office');
 
-    const totalDesks          = deskItems.reduce((acc, s) => acc + s.total_stock, 0);
-    const availableDesks      = deskItems.reduce((acc, s) => acc + s.available, 0);
-    const bookedDesks         = deskItems.reduce((acc, s) => acc + s.booked, 0);
+    const totalDesks       = deskItems.reduce((acc, s) => acc + s.total_stock, 0);
+    const availableDesks   = deskItems.reduce((acc, s) => acc + s.available, 0);
+    const bookedDesks      = deskItems.reduce((acc, s) => acc + s.booked, 0);
 
-    const totalRooms          = roomItems.reduce((acc, s) => acc + s.total_stock, 0);
-    const availableRooms      = roomItems.reduce((acc, s) => acc + s.available, 0);
-    const bookedRooms         = roomItems.reduce((acc, s) => acc + s.booked, 0);
+    const totalPrivate     = privateRoomItems.reduce((acc, s) => acc + s.total_stock, 0);
+    const availablePrivate = privateRoomItems.reduce((acc, s) => acc + s.available, 0);
+    const bookedPrivate    = privateRoomItems.reduce((acc, s) => acc + s.booked, 0);
 
-    const totalAll            = totalDesks + totalRooms;
-    const totalBooked         = bookedDesks + bookedRooms;
-    const occupancyRate       = totalAll > 0 ? Math.round((totalBooked / totalAll) * 100) : 0;
+    const totalOffice      = officeItems.reduce((acc, s) => acc + s.total_stock, 0);
+    const availableOffice  = officeItems.reduce((acc, s) => acc + s.available, 0);
+    const bookedOffice     = officeItems.reduce((acc, s) => acc + s.booked, 0);
+
+    const totalBooked      = bookedDesks + bookedPrivate + bookedOffice;
 
     return (
         <AdminLayout>
@@ -87,32 +89,48 @@ const RoomMonitoring = () => {
                             <p className="text-2xl font-bold text-gray-900">
                                 {summaryLoading ? '—' : `${availableDesks}/${totalDesks}`}
                             </p>
-                            <p className="text-xs text-gray-400">tersedia</p>
+                            <p className="text-xs text-gray-400">{summaryLoading ? '' : `${bookedDesks} terpakai`}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Ruangan Privat */}
+                {/* Private Room */}
                 <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-indigo-100 rounded-lg">
                             <DoorOpen className="text-indigo-600" size={20} />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-500 font-medium">Ruangan Privat</p>
+                            <p className="text-xs text-gray-500 font-medium">Private Room</p>
                             <p className="text-2xl font-bold text-gray-900">
-                                {summaryLoading ? '—' : `${availableRooms}/${totalRooms}`}
+                                {summaryLoading ? '—' : `${availablePrivate}/${totalPrivate}`}
                             </p>
-                            <p className="text-xs text-gray-400">tersedia</p>
+                            <p className="text-xs text-gray-400">{summaryLoading ? '' : `${bookedPrivate} terpakai`}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Terisi */}
+                {/* Private Office */}
+                <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-purple-100 rounded-lg">
+                            <Building2 className="text-purple-600" size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 font-medium">Private Office</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                                {summaryLoading ? '—' : `${availableOffice}/${totalOffice}`}
+                            </p>
+                            <p className="text-xs text-gray-400">{summaryLoading ? '' : `${bookedOffice} terpakai`}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Terisi Hari Ini */}
                 <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-red-100 rounded-lg">
-                            <XCircle className="text-red-600" size={20} />
+                            <Users className="text-red-600" size={20} />
                         </div>
                         <div>
                             <p className="text-xs text-gray-500 font-medium">Total Terisi</p>
@@ -120,50 +138,12 @@ const RoomMonitoring = () => {
                                 {summaryLoading ? '—' : totalBooked}
                             </p>
                             <p className="text-xs text-gray-400">
-                                {summaryLoading ? '' : `${bookedDesks} meja · ${bookedRooms} ruangan`}
+                                {summaryLoading ? '' : `${bookedDesks} meja · ${bookedPrivate + bookedOffice} ruangan`}
                             </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tingkat Hunian */}
-                <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-yellow-100 rounded-lg">
-                            <Activity className="text-yellow-600" size={20} />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium">Tingkat Hunian</p>
-                            <p className="text-2xl font-bold text-yellow-700">
-                                {summaryLoading ? '—' : `${occupancyRate}%`}
-                            </p>
-                            <p className="text-xs text-gray-400">dari semua unit</p>
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* Per-Room Summary */}
-            {!summaryLoading && summary.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
-                    <h2 className="text-sm font-semibold text-gray-700 mb-3">Status Per Produk (Hari Ini)</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {summary.map((item) => (
-                            <div key={item.product_id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-800">{item.room}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">
-                                        {item.available}/{item.total_stock} tersedia
-                                    </p>
-                                </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${item.occupancy === 'AVAILABLE' ? 'bg-green-600' : 'bg-red-600'}`}>
-                                    {item.occupancy === 'AVAILABLE' ? 'OPEN' : 'FULL'}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Main Schedule Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

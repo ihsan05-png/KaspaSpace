@@ -21,7 +21,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             
             // Auto-select first active variant if available
             if (product.variants && product.variants.length > 0) {
-                const isBooking = ['share_desk', 'private_room', 'private_office', 'virtual_office'].includes(product.product_type);
+                const isBooking = ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'].includes(product.product_type);
                 const firstActiveVariant = product.variants.find(v =>
                     v.is_active && (isBooking || !v.manage_stock || v.stock_quantity > 0)
                 );
@@ -34,8 +34,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
 
     if (!isOpen || !product) return null;
 
-    // Hourly booking: share_desk, private_room (need date + time)
-    const isHourlyBooking = ['share_desk', 'private_room'].includes(product.product_type);
+    // Hourly booking: share_desk, private_room, meeting_room (need date + time)
+    const isHourlyBooking = ['share_desk', 'private_room', 'meeting_room'].includes(product.product_type);
     // Date-only booking: private_office, virtual_office (need date only, monthly/yearly packages)
     const isDateOnlyBooking = ['private_office', 'virtual_office'].includes(product.product_type);
     // Combined for stock check purposes
@@ -80,6 +80,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
         }));
     };
 
+    const rooms = product.rooms || [];
+
     const handleAddToCart = () => {
         if (!selectedVariant) {
             alert('Silakan pilih varian produk');
@@ -96,6 +98,16 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             return;
         }
 
+        if (isCoworkingBooking && rooms.length > 0 && !bookingData.roomId) {
+            alert('Silakan pilih ruangan terlebih dahulu');
+            return;
+        }
+
+        if (isCoworkingBooking && bookingData._pendingUnit) {
+            alert('Silakan pilih unit ruangan terlebih dahulu');
+            return;
+        }
+
         const data = {
             product_id: product.id,
             product_name: product.title,
@@ -107,6 +119,9 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             price: selectedVariant.price,
             booking_date: bookingData.date || null,
             booking_start_time: bookingData.startTime || null,
+            room_id: bookingData.roomId || null,
+            unit_index: bookingData.unitIndex ?? null,
+            unit_name: bookingData.unitName || null,
         };
 
         router.post('/cart/add', data, {
@@ -120,7 +135,8 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
             },
             onError: (errors) => {
                 console.error('Error adding to cart:', errors);
-                alert('Gagal menambahkan ke keranjang');
+                const msg = errors.booking || errors.stock || errors.product_id || Object.values(errors)[0] || 'Gagal menambahkan ke keranjang';
+                alert(msg);
             }
         });
     };
@@ -283,6 +299,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                                     dateOnly={isDateOnlyBooking}
                                     productOpen={product.open_time || null}
                                     productClose={product.close_time || null}
+                                    rooms={rooms}
                                 />
                             )}
 
@@ -378,7 +395,9 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                                 disabled={
                                     !selectedVariant ||
                                     (isHourlyBooking && (!bookingData.date || !bookingData.startTime)) ||
-                                    (isDateOnlyBooking && !bookingData.date)
+                                    (isDateOnlyBooking && !bookingData.date) ||
+                                    (isCoworkingBooking && rooms.length > 0 && !bookingData.roomId) ||
+                                    (isCoworkingBooking && bookingData._pendingUnit)
                                 }
                                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
                             >
@@ -388,7 +407,11 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart }) 
                                         ? 'Pilih Tanggal & Waktu Booking'
                                         : isDateOnlyBooking && !bookingData.date
                                             ? 'Pilih Tanggal Mulai Sewa'
-                                            : 'Tambah ke Keranjang'}
+                                            : isCoworkingBooking && rooms.length > 0 && !bookingData.roomId
+                                                ? 'Pilih Ruangan'
+                                                : isCoworkingBooking && bookingData._pendingUnit
+                                                    ? 'Pilih Unit Ruangan'
+                                                    : 'Tambah ke Keranjang'}
                             </button>
                         </div>
                     </div>

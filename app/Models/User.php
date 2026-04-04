@@ -55,4 +55,9 @@ class User extends Authenticatable
             'agreed_at' => 'datetime',
         ];
     }
+
+    public function reviews()
+    {
+        return $this->hasMany(\App\Models\Review::class);
+    }
 }

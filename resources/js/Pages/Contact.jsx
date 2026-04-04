@@ -28,7 +28,7 @@ const Contact = () => {
 
         // Kirim ke WhatsApp
         const message = `*Pesan dari Website Kaspa Space*\n\nNama: ${formData.name}\nEmail: ${formData.email}\nWhatsApp: ${formData.whatsapp}\n\nPesan:\n${formData.message}`;
-        const whatsappUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
+        const whatsappUrl = `https://wa.me/62895363501632?text=${encodeURIComponent(message)}`;
         
         window.open(whatsappUrl, '_blank');
         

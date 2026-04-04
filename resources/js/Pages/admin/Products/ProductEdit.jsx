@@ -8,7 +8,7 @@ import {
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 
-const ProductsEdit = ({ product, categories, allProducts }) => {
+const ProductsEdit = ({ product, categories, rooms = [], productRoomIds = [], unitAssignments: initialUnitAssignments = {} }) => {
   const { data, setData, post, processing, errors } = useForm({
     title: product.title || '',
     subtitle: product.subtitle || '',
@@ -26,6 +26,8 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
       name: v.name ? v.name.replace(/\s*\(Full Day[^)]*\)/gi, '').trim() : v.name,
     })),
     recommendations: product.recommended_products?.map(p => p.id) || [],
+    room_ids: productRoomIds,
+    unit_assignments: initialUnitAssignments, // { roomId: [unitIndices] }
   });
 
   const [imagePreview, setImagePreview] = useState(product.images || []);
@@ -45,6 +47,32 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
     const oH = parseInt(open.split(':')[0], 10);
     const cH = parseInt(close.split(':')[0], 10);
     const maxH = Math.max(1, cH - oH);
+
+    if (type === 'meeting_room') {
+      const packages = [
+        { label: 'Basic',    sku: 'MR-B' },
+        { label: 'Standard', sku: 'MR-S' },
+        { label: 'Plus',     sku: 'MR-P' },
+      ];
+      const variants = [];
+      let order = 1;
+      packages.forEach(pkg => {
+        for (let i = 1; i <= maxH; i++) {
+          variants.push({
+            name: `${pkg.label} ${i} Jam`,
+            price: '',
+            compare_price: '',
+            stock_quantity: 1,
+            manage_stock: true,
+            sku: `${pkg.sku}-${i}H`,
+            duration_hours: i,
+            sort_order: order++,
+          });
+        }
+      });
+      return variants;
+    }
+
     const prefix = type === 'share_desk' ? 'SD' : 'PR';
     const stock  = type === 'share_desk' ? 8 : 1;
     return Array.from({ length: maxH }, (_, i) => ({
@@ -141,6 +169,10 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
       setLocalOpen(OPEN);
       setLocalClose(CLOSE);
       setData('variants', generateHourlyVariants('private_room', OPEN, CLOSE));
+    } else if (productType === 'meeting_room') {
+      setLocalOpen(OPEN);
+      setLocalClose(CLOSE);
+      setData('variants', generateHourlyVariants('meeting_room', OPEN, CLOSE));
     } else if (productType === 'virtual_office') {
       setData('variants', [...virtualOfficeVariants]);
     }
@@ -149,11 +181,11 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
   const handleLocalHoursChange = (newOpen, newClose) => {
     setLocalOpen(newOpen);
     setLocalClose(newClose);
-    if (selectedProductType === 'share_desk' || selectedProductType === 'private_room') {
+    if (['share_desk', 'private_room', 'meeting_room'].includes(selectedProductType)) {
       const oH = parseInt(newOpen.split(':')[0], 10);
       const cH = parseInt(newClose.split(':')[0], 10);
       const newMaxH = Math.max(1, cH - oH);
-      const prefix = selectedProductType === 'share_desk' ? 'SD' : 'PR';
+      const prefix = selectedProductType === 'share_desk' ? 'SD' : selectedProductType === 'meeting_room' ? 'MR' : 'PR';
       const defaultStock = selectedProductType === 'share_desk' ? 8 : 1;
 
       // Smart merge: preserve existing data where hours still fit, add new slots
@@ -247,12 +279,12 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
   };
 
   const addVariant = () => {
-    const isHourly = selectedProductType === 'share_desk' || selectedProductType === 'private_room';
+    const isHourly = ['share_desk', 'private_room', 'meeting_room'].includes(selectedProductType);
 
     if (isHourly) {
       const maxHours = data.variants.reduce((max, v) => Math.max(max, Number(v.duration_hours) || 0), 0);
       const nextHours = maxHours + 1;
-      const prefix = selectedProductType === 'share_desk' ? 'SD' : 'PR';
+      const prefix = selectedProductType === 'share_desk' ? 'SD' : selectedProductType === 'meeting_room' ? 'MR' : 'PR';
       const defaultStock = selectedProductType === 'share_desk' ? 8 : 1;
       setData('variants', [...data.variants, {
         name: `${nextHours} Jam`,
@@ -330,6 +362,7 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
       custom_options: validCustomOptions,
       variants: validVariants,
       recommendations: data.recommendations,
+      room_ids: data.room_ids,
     };
     
     console.log('Submit data:', submitData);
@@ -487,9 +520,9 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
               rows={8}
               className="block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             />
-            {(selectedProductType === 'share_desk' || selectedProductType === 'private_room') && (
+            {['share_desk', 'private_room', 'meeting_room'].includes(selectedProductType) && (
               <p className="mt-2 text-xs text-gray-500 italic">
-                💡 Tips: Jelaskan bahwa Meeting Room memiliki 8 meja kerja dengan jam operasional {localOpen}-{localClose} WIB
+                💡 Tips: Jelaskan fasilitas ruangan dan jam operasional {localOpen}-{localClose} WIB
               </p>
             )}
           </div>
@@ -530,6 +563,7 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                 <option value="private_office">Private Office (6 ruangan terpisah)</option>
                 <option value="share_desk">Share Desk - Meeting Room (sewa per meja)</option>
                 <option value="private_room">Private Room - Meeting Room (sewa seluruh ruangan)</option>
+                <option value="meeting_room">Meeting Room (sewa ruangan rapat per jam)</option>
                 <option value="virtual_office">Virtual Office (sewa alamat kantor + fasilitas)</option>
               </select>
               {selectedProductType && (
@@ -538,6 +572,7 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                     {selectedProductType === 'private_office' && '✓ Variasi untuk Private Office telah ditambahkan (12 paket: 4/6/8 pax)'}
                     {selectedProductType === 'share_desk' && `✓ Variasi untuk Share Desk telah ditambahkan (1-${localMaxHours} jam, operasional ${localOpen}-${localClose} WIB)`}
                     {selectedProductType === 'private_room' && `✓ Variasi untuk Private Room telah ditambahkan (1-${localMaxHours} jam, operasional ${localOpen}-${localClose} WIB)`}
+                    {selectedProductType === 'meeting_room' && `✓ Variasi Meeting Room: Basic/Standard/Plus × 1-${localMaxHours} jam (total ${localMaxHours * 3} varian, operasional ${localOpen}-${localClose} WIB)`}
                     {selectedProductType === 'virtual_office' && '✓ Variasi untuk Virtual Office telah ditambahkan (15 paket: Bronze/Platinum/Gold/Diamond)'}
                   </p>
                   {selectedProductType === 'private_office' && (
@@ -562,18 +597,29 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                       </ul>
                     </div>
                   )}
-                  {(selectedProductType === 'share_desk' || selectedProductType === 'private_room') && (
+                  {(['share_desk', 'private_room', 'meeting_room'].includes(selectedProductType)) && (
                     <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                      <p className="text-sm font-medium text-yellow-800">⚠️ Perhatian: Meeting Room Time-Based Booking</p>
+                      <p className="text-sm font-medium text-yellow-800">⚠️ Perhatian: Coworking Time-Based Booking</p>
                       <ul className="text-xs text-yellow-700 mt-1 space-y-1 list-disc list-inside">
-                        <li>Share Desk dan Private Room menggunakan ruangan yang SAMA (1 ruangan dengan 8 meja)</li>
-                        <li>Jika Private Room dipesan → semua 8 meja Share Desk tidak tersedia untuk waktu yang sama</li>
-                        <li><strong>Stok otomatis kembali setelah durasi sewa berakhir</strong> (contoh: booking 1 jam → stok kembali setelah 1 jam)</li>
-                        <li>Backend harus mengimplementasikan sistem scheduling untuk auto-recovery stok berdasarkan waktu</li>
+                        <li>Share Desk dan Private Room bisa berbagi ruangan fisik yang sama</li>
+                        <li>Jika Private Room dipesan → semua meja Share Desk di ruangan yang sama tidak tersedia</li>
+                        <li><strong>Stok otomatis kembali setelah durasi sewa berakhir</strong></li>
+                        <li>Assign ruangan di menu <strong>Manajemen Ruangan</strong> untuk mengaktifkan cross-blocking</li>
                       </ul>
                     </div>
                   )}
-                  {(selectedProductType === 'share_desk' || selectedProductType === 'private_room') && (
+                  {selectedProductType === 'meeting_room' && (
+                    <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                      <p className="text-sm font-medium text-amber-800">ℹ️ Info: Meeting Room</p>
+                      <ul className="text-xs text-amber-700 mt-1 space-y-1 list-disc list-inside">
+                        <li>Sewa <strong>1 ruangan rapat eksklusif</strong> per jam</li>
+                        <li>Ruangan terpisah dari Share Desk / Private Room</li>
+                        <li>Assign ruangan di menu <strong>Manajemen Ruangan</strong> setelah produk disimpan</li>
+                        <li>Stok otomatis kembali setelah durasi sewa berakhir</li>
+                      </ul>
+                    </div>
+                  )}
+                  {(['share_desk', 'private_room', 'meeting_room'].includes(selectedProductType)) && (
                     <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
                       <p className="text-xs font-semibold text-indigo-800 mb-2">⏰ Jam Operasional Produk Ini</p>
                       <div className="grid grid-cols-2 gap-3">
@@ -716,37 +762,21 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
                   </div>
                 </div>
                 
-                {/* Stock management for Coworking Space */}
-                {data.category_id && categories.find(cat => cat.id == data.category_id)?.name === 'Coworking Space' && (
+                {/* Jumlah unit ruangan — hanya di varian pertama private_office */}
+                {selectedProductType === 'private_office' && index === 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Stok Awal</label>
-                        <input
-                          type="number"
-                          value={variant.stock_quantity}
-                          onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          className="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
-                      <div className="flex items-center pt-5">
-                        <input
-                          type="checkbox"
-                          checked={variant.manage_stock}
-                          onChange={(e) => updateVariant(index, 'manage_stock', e.target.checked)}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                        />
-                        <label className="ml-2 text-xs text-gray-700">Kelola stok</label>
-                      </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Jumlah Unit Ruangan</label>
+                      <input
+                        type="number"
+                        value={variant.stock_quantity}
+                        onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
+                        placeholder="0"
+                        min="1"
+                        className="block w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">📦 Total unit ruangan tersedia untuk semua varian (Room 1, Room 2, dst. di monitoring).</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {selectedProductType === 'private_office' && '📦 PENTING: Semua varian berbagi 6 ruangan yang sama. Stok tidak dikelola per varian, tapi secara keseluruhan (total 6 ruangan untuk semua kapasitas 4/6/8 pax). Backend harus menghitung total ruangan terpakai dari semua varian.'}
-                      {selectedProductType === 'share_desk' && '📦 Stok menunjukkan jumlah meja tersedia (maksimal 8). Stok kembali otomatis setelah durasi sewa selesai (contoh: booking 2 jam → stok kembali setelah 2 jam).'}
-                      {selectedProductType === 'private_room' && '📦 Stok menunjukkan ketersediaan ruangan (1 = tersedia). Stok kembali otomatis setelah durasi sewa selesai (contoh: booking 3 jam → stok kembali setelah 3 jam).'}
-                      {selectedProductType === 'virtual_office' && '📦 Virtual Office berbasis virtual/digital sehingga stok unlimited (999). Tidak ada batasan fisik ruangan. Stok kembali setelah masa langganan berakhir.'}
-                    </p>
                   </div>
                 )}
               </div>
@@ -807,55 +837,105 @@ const ProductsEdit = ({ product, categories, allProducts }) => {
           </div>
         </div>
 
-        {/* Product Recommendations */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Produk terkait</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={data.recommendations.length > 0}
-                onChange={(e) => {
-                  if (!e.target.checked) {
-                    setData('recommendations', []);
-                  }
-                }}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 text-sm font-medium text-gray-700">Tampilkan produk terkait</label>
-            </div>
 
-            {data.recommendations.length > 0 && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pilih produk rekomendasi</label>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {allProducts.map((prod) => (
-                      <div key={prod.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={data.recommendations.includes(prod.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setData('recommendations', [...data.recommendations, prod.id]);
-                            } else {
-                              setData('recommendations', data.recommendations.filter(id => id !== prod.id));
-                            }
-                          }}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                        />
-                        <label className="ml-2 text-sm text-gray-700">
-                          {prod.title} ({prod.category.name})
-                        </label>
+        {/* Room Assignment */}
+        {['share_desk', 'private_room', 'meeting_room', 'private_office'].includes(data.product_type) && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-gray-900">Penugasan Ruangan</h2>
+              <Link href="/admin/rooms" className="text-xs text-indigo-600 hover:underline">Kelola Ruangan →</Link>
+            </div>
+            <p className="text-sm text-gray-500 mb-3">
+              Produk yang berbagi ruangan yang sama akan saling mengunci slot waktu.
+            </p>
+            {rooms.length === 0 ? (
+              <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3">
+                Belum ada ruangan. <Link href="/admin/rooms" className="underline font-medium">Buat ruangan di halaman Ruangan</Link>, lalu kembali ke sini untuk menugaskan.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {rooms.map((room) => {
+                  const unitCount = room.unit_count ?? 1;
+                  const unitNames = room.unit_names ?? [];
+                  const isMulti = unitCount > 1;
+                  const selectedUnits = data.unit_assignments[room.id] ?? [];
+
+                  if (isMulti) {
+                    const allSelected = selectedUnits.length === unitCount;
+                    const someSelected = selectedUnits.length > 0 && !allSelected;
+                    return (
+                      <div key={room.id} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={el => { if (el) el.indeterminate = someSelected; }}
+                            onChange={(e) => {
+                              const all = e.target.checked ? Array.from({length: unitCount}, (_, i) => i) : [];
+                              setData('unit_assignments', {...data.unit_assignments, [room.id]: all});
+                            }}
+                            className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                          />
+                          <span className="text-sm font-medium text-gray-800">
+                            {room.name}
+                            <span className="text-gray-400 font-normal ml-1">({unitCount} unit)</span>
+                            {room.is_active === false && <span className="ml-1 text-xs text-red-500">(Nonaktif)</span>}
+                          </span>
+                        </div>
+                        <div className="ml-6 grid grid-cols-2 gap-1">
+                          {Array.from({length: unitCount}, (_, i) => {
+                            const unitName = unitNames[i] || `Unit ${i + 1}`;
+                            const checked = selectedUnits.includes(i);
+                            return (
+                              <label key={i} className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...selectedUnits, i]
+                                      : selectedUnits.filter(u => u !== i);
+                                    setData('unit_assignments', {...data.unit_assignments, [room.id]: next});
+                                  }}
+                                  className="h-3.5 w-3.5 text-indigo-600 border-gray-300 rounded"
+                                />
+                                <span className="text-xs text-gray-700">{unitName}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    );
+                  }
+
+                  return (
+                    <div key={room.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`room-${room.id}`}
+                        checked={data.room_ids.includes(room.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setData('room_ids', [...data.room_ids, room.id]);
+                          } else {
+                            setData('room_ids', data.room_ids.filter(id => id !== room.id));
+                          }
+                        }}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`room-${room.id}`} className="ml-2 text-sm text-gray-700">
+                        {room.name}
+                        <span className="text-gray-400 ml-1">(1 unit · {room.capacity} meja/unit)</span>
+                        {room.is_active === false && <span className="ml-1 text-xs text-red-500">(Nonaktif)</span>}
+                      </label>
+                    </div>
+                  );
+                })}
               </div>
             )}
+            {errors.room_ids && <p className="mt-1 text-sm text-red-600">{errors.room_ids}</p>}
           </div>
-        </div>
+        )}
 
         {/* Submit Buttons */}
         <div className="flex items-center justify-between pt-6">

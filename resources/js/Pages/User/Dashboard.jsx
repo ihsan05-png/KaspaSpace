@@ -15,10 +15,11 @@ import {
     X,
     Bell,
     CalendarCheck,
-    Download
+    Download,
+    Star
 } from 'lucide-react';
 
-export default function UserDashboard({ orders, activeDiscounts, stats, agreement, termsAgreement, privacyAgreement }) {
+export default function UserDashboard({ orders, activeDiscounts, stats, agreement, termsAgreement, privacyAgreement, reviewedProductIds = [] }) {
     const [showModal, setShowModal] = useState(null);
     const [completedBookings, setCompletedBookings] = useState([]);
     const [dismissedNotif, setDismissedNotif] = useState(false);
@@ -454,6 +455,30 @@ export default function UserDashboard({ orders, activeDiscounts, stats, agreemen
                                                         </p>
                                                     )}
                                                 </div>
+
+                                                {/* Tombol ulasan per item (order paid/selesai) */}
+                                                {order.payment_status === 'paid' && (
+                                                    <div className="mb-3 flex flex-wrap gap-2">
+                                                        {order.items.map((item) => {
+                                                            if (!item.product?.slug) return null;
+                                                            const alreadyReviewed = reviewedProductIds.includes(item.product_id);
+                                                            return (
+                                                                <a
+                                                                    key={item.id}
+                                                                    href={`/product/${item.product.slug}#ulasan`}
+                                                                    className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                                                                        alreadyReviewed
+                                                                            ? 'text-yellow-600 border-yellow-200 bg-yellow-50 hover:bg-yellow-100'
+                                                                            : 'text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100'
+                                                                    }`}
+                                                                >
+                                                                    <Star className="w-3.5 h-3.5" />
+                                                                    {alreadyReviewed ? 'Lihat Ulasan' : 'Tulis Ulasan'}
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-sm font-semibold text-gray-900">

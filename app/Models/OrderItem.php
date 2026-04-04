@@ -9,7 +9,7 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id', 'product_id', 'product_name', 'variant_id', 'variant_name',
-        'custom_options', 'quantity', 'price', 'subtotal',
+        'room_id', 'unit_index', 'custom_options', 'quantity', 'price', 'subtotal',
         'booking_start_at', 'booking_end_at', 'stock_reduced', 'stock_restored'
     ];
 
@@ -34,5 +34,10 @@ class OrderItem extends Model
     public function productVariant()
     {
         return $this->belongsTo(ProductVariant::class, 'variant_id');
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class);
     }
 }

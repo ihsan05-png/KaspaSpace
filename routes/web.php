@@ -23,6 +23,10 @@ use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\Admin\NewsletterController;
 use App\Http\Controllers\Admin\AgreementController;
 use App\Http\Controllers\Admin\StatisticsController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\RoomAvailabilityController;
+use App\Http\Controllers\Admin\RoomController;
 
 use App\Models\GoogleSheetsConfig;
 use App\Models\Product;
@@ -162,6 +166,9 @@ Route::middleware(['redirect.admin'])->group(function () {
     // Booking availability API
     Route::get('/api/booking/availability', [\App\Http\Controllers\BookingAvailabilityController::class, 'check'])->name('api.booking.availability');
 
+    // Room availability API (room-based)
+    Route::get('/api/rooms/availability', [RoomAvailabilityController::class, 'check'])->name('api.rooms.availability');
+
     // Room schedule API (real-time availability from database)
     Route::get('/api/room-schedule', [\App\Http\Controllers\RoomScheduleController::class, 'getSchedule'])->name('api.room.schedule');
     Route::get('/api/room-schedule/today', [\App\Http\Controllers\RoomScheduleController::class, 'getTodaySummary'])->name('api.room.today');
@@ -222,6 +229,10 @@ Route::middleware('auth')->group(function () {
     
     // API to check order status
     Route::get('/api/orders/{order}/status', [OrderController::class, 'checkStatus'])->name('api.orders.status');
+
+    // Reviews (user)
+    Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+    Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');
 });
 
 /*
@@ -395,6 +406,18 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
 
     // News Management Routes
     Route::resource('news', NewsController::class);
+
+    // Room Management Routes
+    Route::get('rooms', [RoomController::class, 'index'])->name('rooms.index');
+    Route::post('rooms', [RoomController::class, 'store'])->name('rooms.store');
+    Route::put('rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
+    Route::delete('rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+    // Reviews Management Routes
+    Route::get('reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+    Route::post('reviews/{review}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
+    Route::patch('reviews/{review}/toggle-approve', [AdminReviewController::class, 'toggleApprove'])->name('reviews.toggle-approve');
+    Route::delete('reviews/{review}', [AdminReviewController::class, 'destroy'])->name('reviews.destroy');
 });
 
 /*

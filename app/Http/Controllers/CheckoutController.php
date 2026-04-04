@@ -143,6 +143,8 @@ class CheckoutController extends Controller
                 'order_id' => $order->id,
                 'product_id' => $item['product_id'],
                 'variant_id' => $item['variant_id'] ?? null,
+                'room_id' => $item['room_id'] ?? null,
+                'unit_index' => isset($item['unit_index']) ? (int) $item['unit_index'] : null,
                 'product_name' => $item['product_name'],
                 'variant_name' => $item['variant_name'] ?? null,
                 'custom_options' => $item['custom_options'] ?? [],
@@ -166,7 +168,7 @@ class CheckoutController extends Controller
                     $durationMonths = max(1, round($durationHours / 720));
                     $endAt = (clone $startAt)->addMonths($durationMonths);
                 } else {
-                    // Hourly booking (share_desk, private_room)
+                    // Hourly booking (share_desk, private_room, meeting_room)
                     $endAt = (clone $startAt)->addMinutes((int) ($durationHours * 60));
                 }
 
@@ -174,56 +176,124 @@ class CheckoutController extends Controller
                 $orderItemData['booking_end_at'] = $endAt;
 
                 // Re-validate availability inside transaction to prevent double booking
-                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
+                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
                     if (in_array($product->product_type, ['private_office', 'virtual_office'])) {
                         // Validate date-only booking (private_office, virtual_office)
-                        // All variants share the same inventory - use first variant's stock
-                        $firstVariant = $product->variants()->where('is_active', true)->first();
-                        $totalSlots = $firstVariant ? ($firstVariant->stock_quantity ?? 999) : 999;
-                        if ($product->product_type === 'private_office' && $totalSlots <= 0) $totalSlots = 6;
+                        $roomId    = $item['room_id'] ?? null;
+                        $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
+                        $room      = $roomId ? \App\Models\Room::find($roomId) : null;
 
-                        $productType = $product->product_type;
-                        $bookedSlots = OrderItem::whereHas('product', fn($q) => $q->where('product_type', $productType))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                            ->where('stock_reduced', true)
-                            ->where('stock_restored', false)
-                            ->where('booking_start_at', '<=', $endAt)
-                            ->where(fn($q) => $q->whereNull('booking_end_at')->orWhere('booking_end_at', '>', $startAt))
-                            ->sum('quantity');
+                        if ($room) {
+                            // Room-based + per-unit validation (sama seperti hourly exclusive)
+                            $unitCount = (int) ($room->unit_count ?? 1);
+                            $activeQ   = fn() => OrderItem::where('room_id', $roomId)
+                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                ->where('stock_reduced', true)->where('stock_restored', false)
+                                ->where('booking_start_at', '<', $endAt)
+                                ->where('booking_end_at', '>', $startAt);
 
-                        $productLabel = $product->product_type === 'private_office' ? 'Private Office' : 'Virtual Office';
-                        if (($totalSlots - $bookedSlots) < $item['quantity']) {
-                            DB::rollBack();
-                            return back()->withErrors(['booking' => "$productLabel tidak tersedia untuk tanggal {$item['booking_date']}. Silakan pilih tanggal lain."]);
-                        }
-                    } else {
-                        // Validate share_desk and private_room
-                        $bookedDesks = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                            ->where('stock_reduced', true)
-                            ->where('stock_restored', false)
-                            ->where('booking_start_at', '<', $endAt)
-                            ->where('booking_end_at', '>', $startAt)
-                            ->sum('quantity');
-
-                        $privateRoomBooked = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'private_room'))
-                            ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                            ->where('stock_reduced', true)
-                            ->where('stock_restored', false)
-                            ->where('booking_start_at', '<', $endAt)
-                            ->where('booking_end_at', '>', $startAt)
-                            ->exists();
-
-                        if ($product->product_type === 'share_desk') {
-                            $available = $privateRoomBooked ? 0 : (8 - $bookedDesks);
-                            if ($available < $item['quantity']) {
-                                DB::rollBack();
-                                return back()->withErrors(['booking' => "Slot Share Desk tidak tersedia lagi untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                            if ($unitIndex !== null && $unitCount > 1) {
+                                $unitName  = $item['unit_name'] ?? "Unit " . ($unitIndex + 1);
+                                $unitTaken = (clone $activeQ())->where('unit_index', $unitIndex)->exists();
+                                if ($unitTaken) {
+                                    DB::rollBack();
+                                    return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk periode tersebut. Silakan pilih unit atau tanggal lain."]);
+                                }
+                            } else {
+                                $exclusiveBooked = (clone $activeQ())->count();
+                                if ($exclusiveBooked >= $unitCount) {
+                                    DB::rollBack();
+                                    return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk periode tersebut. Silakan pilih tanggal lain."]);
+                                }
                             }
                         } else {
-                            if ($privateRoomBooked || $bookedDesks > 0) {
+                            // Fallback global check jika tidak ada room_id
+                            $firstVariant = $product->variants()->where('is_active', true)->first();
+                            $totalSlots   = $firstVariant ? ($firstVariant->stock_quantity ?? 999) : 999;
+                            if ($product->product_type === 'private_office' && $totalSlots <= 0) $totalSlots = 6;
+
+                            $bookedSlots = OrderItem::whereHas('product', fn($q) => $q->where('product_type', $product->product_type))
+                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                ->where('stock_reduced', true)->where('stock_restored', false)
+                                ->where('booking_start_at', '<', $endAt)
+                                ->where(fn($q) => $q->whereNull('booking_end_at')->orWhere('booking_end_at', '>', $startAt))
+                                ->sum('quantity');
+
+                            $productLabel = $product->product_type === 'private_office' ? 'Private Office' : 'Virtual Office';
+                            if (($totalSlots - $bookedSlots) < $item['quantity']) {
                                 DB::rollBack();
-                                return back()->withErrors(['booking' => "Private Room tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                return back()->withErrors(['booking' => "$productLabel tidak tersedia untuk tanggal {$item['booking_date']}. Silakan pilih tanggal lain."]);
+                            }
+                        }
+                    } else {
+                        // Validate share_desk / private_room / meeting_room - room-based jika ada room_id, fallback ke global
+                        $roomId = $item['room_id'] ?? null;
+
+                        if ($roomId) {
+                            // Room-based availability check
+                            $room = \App\Models\Room::find($roomId);
+                            if ($room) {
+                                $isExclusive = $product->product_type !== 'share_desk';
+                                $activeQ = fn() => OrderItem::where('room_id', $roomId)
+                                    ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                    ->where('stock_reduced', true)->where('stock_restored', false)
+                                    ->where('booking_start_at', '<', $endAt)
+                                    ->where('booking_end_at', '>', $startAt->copy()->subMinutes(10));
+
+                                $exclusiveBooked = (clone $activeQ())
+                                    ->whereHas('product', fn($q) => $q->whereNotIn('product_type', ['share_desk']))->count();
+                                $sharedBooked = (int) (clone $activeQ())
+                                    ->whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))->sum('quantity');
+
+                                if ($isExclusive) {
+                                    $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
+                                    $unitCount = (int) ($room->unit_count ?? 1);
+
+                                    if ($unitIndex !== null && $unitCount > 1) {
+                                        // Validasi unit spesifik
+                                        $unitName = $item['unit_name'] ?? "Unit " . ($unitIndex + 1);
+                                        $unitTaken = (clone $activeQ())
+                                            ->whereHas('product', fn($q) => $q->whereNotIn('product_type', ['share_desk']))
+                                            ->where('unit_index', $unitIndex)
+                                            ->exists();
+                                        if ($sharedBooked > 0 || $unitTaken) {
+                                            DB::rollBack();
+                                            return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                        }
+                                    } elseif ($exclusiveBooked >= $unitCount || $sharedBooked > 0) {
+                                        DB::rollBack();
+                                        return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                    }
+                                } else {
+                                    if ($exclusiveBooked > 0 || ($room->capacity - $sharedBooked) < $item['quantity']) {
+                                        DB::rollBack();
+                                        return back()->withErrors(['booking' => "Meja di {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                    }
+                                }
+                            }
+                        } else {
+                            // Fallback: global product_type check (backward compat)
+                            $bookedDesks = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))
+                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                ->where('stock_reduced', true)->where('stock_restored', false)
+                                ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->sum('quantity');
+
+                            $privateRoomBooked = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'private_room'))
+                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                ->where('stock_reduced', true)->where('stock_restored', false)
+                                ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->exists();
+
+                            if ($product->product_type === 'share_desk') {
+                                $available = $privateRoomBooked ? 0 : (8 - $bookedDesks);
+                                if ($available < $item['quantity']) {
+                                    DB::rollBack();
+                                    return back()->withErrors(['booking' => "Slot Share Desk tidak tersedia lagi untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                }
+                            } else {
+                                if ($privateRoomBooked || $bookedDesks > 0) {
+                                    DB::rollBack();
+                                    return back()->withErrors(['booking' => "Private Room tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                }
                             }
                         }
                     }
@@ -236,7 +306,7 @@ class CheckoutController extends Controller
             if (!empty($orderItemData['booking_start_at']) && !empty($item['variant_id'])) {
                 $product = $product ?? \App\Models\Product::find($item['product_id']);
 
-                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office'])) {
+                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
                     // Booking products: only hold the slot immediately for manual payment methods.
                     // For Midtrans, stock_reduced is set ONLY after payment is confirmed via webhook/checkStatus.
                     if ($validated['payment_method'] !== 'midtrans') {
@@ -323,7 +393,7 @@ class CheckoutController extends Controller
         }
 
         $isBookingProduct = $order->items->contains(fn($item) =>
-            $item->product && in_array($item->product->product_type, ['share_desk', 'private_room'])
+            $item->product && in_array($item->product->product_type, ['share_desk', 'private_room', 'meeting_room'])
         );
 
         return Inertia::render('Orders/Payment', [

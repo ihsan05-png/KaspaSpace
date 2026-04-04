@@ -1,253 +1,126 @@
 import { useState } from 'react';
 import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { EyeIcon, EyeSlashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+
+const inp = "w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition shadow-sm";
 
 export default function Register({ termsAgreement, privacyAgreement }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        name: '',
-        email: '',
-        phone: '',
-        password: '',
-        password_confirmation: '',
-        terms: false,
-        privacy: false,
-        newsletter: false,
+        name: '', email: '', phone: '', password: '', password_confirmation: '',
+        terms: false, privacy: false, newsletter: false,
     });
+    const [showPw, setShowPw] = useState(false);
+    const [showCpw, setShowCpw] = useState(false);
+    const [showModal, setShowModal] = useState(null);
 
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [showModal, setShowModal] = useState(null); // 'terms' | 'privacy' | null
-
-    const termsContent = termsAgreement?.content || [];
-    const privacyContent = privacyAgreement?.content || [];
-
-    const allAgreementsChecked = data.terms && data.privacy && data.newsletter;
-
+    const allChecked = data.terms && data.privacy && data.newsletter;
     const submit = (e) => {
         e.preventDefault();
-
-        post(route('register'), {
-            onFinish: () => reset('password', 'password_confirmation'),
-        });
+        post(route('register'), { onFinish: () => reset('password', 'password_confirmation') });
     };
 
     return (
         <GuestLayout>
-            <Head title="Register" />
-
-            <form onSubmit={submit}>
-                {/* Name & Email in row on larger screens */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Head title="Daftar" />
+            <form onSubmit={submit} className="space-y-2">
+                {/* Nama & Telepon */}
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <InputLabel htmlFor="name" value="Nama" />
-                        <TextInput
-                            id="name"
-                            name="name"
-                            value={data.name}
-                            className="mt-1 block w-full"
-                            autoComplete="name"
-                            isFocused={true}
-                            onChange={(e) => setData('name', e.target.value)}
-                            required
-                        />
-                        <InputError message={errors.name} className="mt-1" />
+                        <input placeholder="Nama lengkap" value={data.name} autoFocus
+                            onChange={(e) => setData('name', e.target.value)} className={inp} />
+                        <InputError message={errors.name} className="mt-1 text-xs" />
                     </div>
-
                     <div>
-                        <InputLabel htmlFor="phone" value="No. Telepon" />
-                        <TextInput
-                            id="phone"
-                            type="tel"
-                            name="phone"
-                            value={data.phone}
-                            className="mt-1 block w-full"
-                            autoComplete="tel"
-                            onChange={(e) => setData('phone', e.target.value)}
-                            placeholder="08xxxxxxxxxx"
-                            required
-                        />
-                        <InputError message={errors.phone} className="mt-1" />
+                        <input type="tel" placeholder="No. telepon" value={data.phone}
+                            onChange={(e) => setData('phone', e.target.value)} className={inp} />
+                        <InputError message={errors.phone} className="mt-1 text-xs" />
                     </div>
                 </div>
 
-                <div className="mt-3">
-                    <InputLabel htmlFor="email" value="Email" />
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        onChange={(e) => setData('email', e.target.value)}
-                        required
-                    />
-                    <InputError message={errors.email} className="mt-1" />
+                {/* Email */}
+                <div>
+                    <input type="email" placeholder="Email" value={data.email}
+                        onChange={(e) => setData('email', e.target.value)} className={inp} />
+                    <InputError message={errors.email} className="mt-1 text-xs" />
                 </div>
 
-                {/* Password fields in row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                {/* Password */}
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <InputLabel htmlFor="password" value="Password" />
-                        <div className="relative mt-1">
-                            <TextInput
-                                id="password"
-                                type={showPassword ? 'text' : 'password'}
-                                name="password"
-                                value={data.password}
-                                className="block w-full pr-10"
-                                autoComplete="new-password"
-                                onChange={(e) => setData('password', e.target.value)}
-                                required
-                            />
-                            <button
-                                type="button"
-                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? (
-                                    <EyeSlashIcon className="w-5 h-5" />
-                                ) : (
-                                    <EyeIcon className="w-5 h-5" />
-                                )}
+                        <div className="relative">
+                            <input type={showPw ? 'text' : 'password'} placeholder="Password" value={data.password}
+                                onChange={(e) => setData('password', e.target.value)} className={inp + ' pr-10'} />
+                            <button type="button" onClick={() => setShowPw(!showPw)}
+                                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600">
+                                {showPw ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                             </button>
                         </div>
-                        <InputError message={errors.password} className="mt-1" />
+                        <InputError message={errors.password} className="mt-1 text-xs" />
                     </div>
-
                     <div>
-                        <InputLabel htmlFor="password_confirmation" value="Konfirmasi Password" />
-                        <div className="relative mt-1">
-                            <TextInput
-                                id="password_confirmation"
-                                type={showConfirmPassword ? 'text' : 'password'}
-                                name="password_confirmation"
-                                value={data.password_confirmation}
-                                className="block w-full pr-10"
-                                autoComplete="new-password"
-                                onChange={(e) => setData('password_confirmation', e.target.value)}
-                                required
-                            />
-                            <button
-                                type="button"
-                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            >
-                                {showConfirmPassword ? (
-                                    <EyeSlashIcon className="w-5 h-5" />
-                                ) : (
-                                    <EyeIcon className="w-5 h-5" />
-                                )}
+                        <div className="relative">
+                            <input type={showCpw ? 'text' : 'password'} placeholder="Konfirmasi password" value={data.password_confirmation}
+                                onChange={(e) => setData('password_confirmation', e.target.value)} className={inp + ' pr-10'} />
+                            <button type="button" onClick={() => setShowCpw(!showCpw)}
+                                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600">
+                                {showCpw ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                             </button>
                         </div>
-                        <InputError message={errors.password_confirmation} className="mt-1" />
+                        <InputError message={errors.password_confirmation} className="mt-1 text-xs" />
                     </div>
                 </div>
 
-                {/* Compact Agreement Section */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-2">Persetujuan</p>
-
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={data.terms}
-                                onChange={(e) => setData('terms', e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                                Setuju{' '}
-                                <button type="button" className="text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); setShowModal('terms'); }}>
-                                    Syarat & Ketentuan
-                                </button>
-                                <span className="text-red-500 ml-1">*</span>
+                {/* Persetujuan */}
+                <div className="bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 space-y-1.5 shadow-sm">
+                    <p className="text-xs text-gray-400 font-medium">Persetujuan</p>
+                    {[
+                        { key: 'terms', label: 'Syarat & Ketentuan', modal: 'terms' },
+                        { key: 'privacy', label: 'Kebijakan Privasi', modal: 'privacy' },
+                        { key: 'newsletter', label: 'Berlangganan newsletter & promo', modal: null },
+                    ].map(({ key, label, modal }) => (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={data[key]}
+                                onChange={(e) => setData(key, e.target.checked)}
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0" />
+                            <span className="text-xs text-gray-600">
+                                {modal ? <>Setuju <button type="button" className="text-blue-600 hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); setShowModal(modal); }}>{label}</button></> : label}
+                                <span className="text-red-400 ml-0.5">*</span>
                             </span>
                         </label>
-                        {errors.terms && <p className="text-xs text-red-500 ml-6">{errors.terms}</p>}
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={data.privacy}
-                                onChange={(e) => setData('privacy', e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                                Setuju{' '}
-                                <button type="button" className="text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); setShowModal('privacy'); }}>
-                                    Kebijakan Privasi
-                                </button>
-                                <span className="text-red-500 ml-1">*</span>
-                            </span>
-                        </label>
-                        {errors.privacy && <p className="text-xs text-red-500 ml-6">{errors.privacy}</p>}
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={data.newsletter}
-                                onChange={(e) => setData('newsletter', e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">
-                                Berlangganan newsletter & promo
-                                <span className="text-red-500 ml-1">*</span>
-                            </span>
-                        </label>
-                        {errors.newsletter && <p className="text-xs text-red-500 ml-6">{errors.newsletter}</p>}
-                    </div>
+                    ))}
+                    {errors.terms && <p className="text-xs text-red-500">{errors.terms}</p>}
+                    {errors.privacy && <p className="text-xs text-red-500">{errors.privacy}</p>}
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
-                    <Link
-                        href={route('login')}
-                        className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Sudah punya akun?
-                    </Link>
-
-                    <PrimaryButton className="ms-4" disabled={processing || !allAgreementsChecked}>
-                        Register
-                    </PrimaryButton>
-                </div>
+                <button type="submit" disabled={processing || !allChecked}
+                    className="w-full bg-gray-900 hover:bg-gray-700 text-white font-semibold py-2.5 rounded-xl disabled:opacity-40 transition text-sm shadow-sm">
+                    {processing ? 'Memproses...' : 'Buat Akun'}
+                </button>
             </form>
 
-            {/* Agreement Modal */}
+            {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowModal(null)}>
-                    <div
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold text-gray-900">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900">
                                 {showModal === 'terms' ? (termsAgreement?.title || 'Syarat & Ketentuan') : (privacyAgreement?.title || 'Kebijakan Privasi')}
                             </h2>
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(null)}
-                                className="text-gray-400 hover:text-gray-600 transition"
-                            >
-                                <XMarkIcon className="w-6 h-6" />
+                            <button type="button" onClick={() => setShowModal(null)} className="text-gray-400 hover:text-gray-600">
+                                <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
-
-                        {/* Scrollable Content */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            {(showModal === 'terms' ? termsContent : privacyContent).map((section, idx) => (
-                                <div key={idx}>
-                                    <h3 className="font-bold text-gray-900 mb-2">{section.title}</h3>
-                                    <ul className="space-y-2">
-                                        {section.items.map((item, i) => (
-                                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                            {(showModal === 'terms' ? termsAgreement?.content : privacyAgreement?.content || []).map((section, i) => (
+                                <div key={i}>
+                                    <h3 className="font-bold text-gray-900 mb-1.5 text-sm">{section.title}</h3>
+                                    <ul className="space-y-1">
+                                        {section.items.map((item, j) => (
+                                            <li key={j} className="flex items-start gap-2 text-sm text-gray-600">
+                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0" />
                                                 {item}
                                             </li>
                                         ))}
@@ -255,14 +128,9 @@ export default function Register({ termsAgreement, privacyAgreement }) {
                                 </div>
                             ))}
                         </div>
-
-                        {/* Footer */}
                         <div className="p-4 border-t border-gray-200">
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(null)}
-                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
-                            >
+                            <button type="button" onClick={() => setShowModal(null)}
+                                className="w-full bg-gray-900 text-white py-2.5 rounded-xl font-semibold hover:bg-gray-700 transition text-sm">
                                 Tutup
                             </button>
                         </div>

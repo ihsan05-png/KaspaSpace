@@ -5,6 +5,7 @@ import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
 import ProductModal from "@/Components/ProductModal";
 import { IMAGE_PLACEHOLDER } from "@/utils/placeholders";
+import heroBg from '../../images/foodanddrink.png';
 
 const FoodBeverage = ({ products = [], currentCategory }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,28 +40,23 @@ const FoodBeverage = ({ products = [], currentCategory }) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
         <Navbar />
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 text-white overflow-hidden">
+      <div className="relative text-white overflow-hidden">
+        {/* Background image */}
         <div
-          className="absolute inset-0 bg-black bg-opacity-30"
-          style={{
-            backgroundImage: "url('/api/placeholder/1920/400')",
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        ></div>
-        
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${heroBg})` }}
+        />
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/55" />
         
         <div className="relative container mx-auto px-4 py-16">
           {/* Title and Navigation Section */}
           <div className="text-center mb-10">
             <div className="mb-6">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 text-white drop-shadow-lg">
                 Kuliner Lokal
               </h1>
-              <p className="text-base sm:text-lg text-blue-100/90 leading-relaxed">
+              <p className="text-base sm:text-lg text-white/85 leading-relaxed drop-shadow">
                 Food and beverage yang dihidangkan secara cepat, praktis, terjangkau, dan enak. Gratis pengiriman dan alat makan
               </p>
             </div>
@@ -69,19 +65,19 @@ const FoodBeverage = ({ products = [], currentCategory }) => {
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               <button
                 onClick={() => router.visit('/workspace/coworking-space')}
-                className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/30 text-white rounded-full font-semibold text-sm hover:bg-white/20 transition-all duration-300 hover:scale-105"
+                className="px-5 py-2 bg-white/15 backdrop-blur-md border border-white/40 text-white rounded-full font-semibold text-sm hover:bg-white/25 transition-all duration-300 hover:scale-105"
               >
                 Coworking Space
               </button>
               <button
                 onClick={() => router.visit('/jasa-profesional-section')}
-                className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/30 text-white rounded-full font-semibold text-sm hover:bg-white/20 transition-all duration-300 hover:scale-105"
+                className="px-5 py-2 bg-white/15 backdrop-blur-md border border-white/40 text-white rounded-full font-semibold text-sm hover:bg-white/25 transition-all duration-300 hover:scale-105"
               >
                 Jasa Profesional
               </button>
               <button
                 onClick={() => router.visit('/food-beverage')}
-                className="px-5 py-2 bg-white text-blue-600 rounded-full font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                className="px-5 py-2 bg-white text-gray-900 rounded-full font-semibold text-sm shadow-lg hover:bg-gray-100 transition-all duration-300 hover:scale-105"
               >
                 Food & Beverage
               </button>

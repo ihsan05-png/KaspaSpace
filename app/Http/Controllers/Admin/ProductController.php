@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\ProductVariant;
 use App\Models\ProductRecommendation;
+use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -59,10 +60,12 @@ class ProductController extends Controller
     {
         $categories = Category::active()->ordered()->get();
         $allProducts = Product::active()->with('category')->get();
+        $rooms = Room::orderBy('name')->get(['id', 'name', 'capacity', 'unit_count', 'unit_names', 'is_active']);
 
         return Inertia::render('admin/Products/Create', [
             'categories' => $categories,
             'allProducts' => $allProducts,
+            'rooms' => $rooms,
         ]);
     }
 
@@ -77,7 +80,7 @@ class ProductController extends Controller
         'promo_label' => 'nullable|string|max:100',
         'base_price' => 'required|numeric|min:0',
         'category_id' => 'required|exists:categories,id',
-        'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
+        'product_type' => 'nullable|string|in:private_office,share_desk,private_room,meeting_room,virtual_office',
         'open_time' => 'nullable|string|max:5',
         'close_time' => 'nullable|string|max:5',
         'is_active' => 'boolean',
@@ -112,6 +115,11 @@ class ProductController extends Controller
         // Recommendations
         'recommendations' => 'nullable|array',
         'recommendations.*' => 'exists:products,id',
+
+        // Rooms
+        'room_ids'         => 'nullable|array',
+        'room_ids.*'       => 'exists:rooms,id',
+        'unit_assignments' => 'nullable|array',
     ]);
 
     DB::beginTransaction();
@@ -175,6 +183,29 @@ class ProductController extends Controller
             }
         }
 
+        // Sync rooms + per-unit assignments
+        $roomIds = array_map('intval', $validated['room_ids'] ?? []);
+        $unitAssignments = $validated['unit_assignments'] ?? [];
+        foreach ($unitAssignments as $roomId => $unitIndices) {
+            $room = \App\Models\Room::find($roomId);
+            if (!$room) continue;
+            $unitProductIds = $room->unit_product_ids ?? [];
+            for ($i = 0; $i < ($room->unit_count ?? 1); $i++) {
+                if (!isset($unitProductIds[$i])) $unitProductIds[$i] = [];
+                $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn($id) => (int)$id !== $product->id));
+            }
+            foreach ((array) $unitIndices as $unitIdx) {
+                $unitIdx = (int) $unitIdx;
+                if (!in_array($product->id, $unitProductIds[$unitIdx] ?? [])) {
+                    $unitProductIds[$unitIdx][] = $product->id;
+                }
+            }
+            $room->unit_product_ids = $unitProductIds;
+            $room->save();
+            $roomIds[] = (int) $roomId;
+        }
+        $product->rooms()->sync(array_unique($roomIds));
+
         DB::commit();
         
         \Log::info('Product saved successfully', ['id' => $product->id]);
@@ -229,11 +260,32 @@ class ProductController extends Controller
             ->active()
             ->with('category')
             ->get();
+        $rooms = Room::orderBy('name')->get(['id', 'name', 'capacity', 'unit_count', 'unit_names', 'unit_product_ids', 'is_active']);
+        $productRoomIds = $product->rooms()->pluck('rooms.id')->toArray();
+
+        // Pre-compute which units are assigned to this product per room
+        $unitAssignments = [];
+        foreach ($rooms as $room) {
+            if (($room->unit_count ?? 1) > 1 && !empty($room->unit_product_ids)) {
+                $assigned = [];
+                foreach ($room->unit_product_ids as $unitIdx => $productIds) {
+                    if (in_array($product->id, (array) $productIds)) {
+                        $assigned[] = $unitIdx;
+                    }
+                }
+                if (!empty($assigned)) {
+                    $unitAssignments[$room->id] = $assigned;
+                }
+            }
+        }
 
         return Inertia::render('admin/Products/ProductEdit', [
-            'product' => $product,
-            'categories' => $categories,
-            'allProducts' => $allProducts,
+            'product'        => $product,
+            'categories'     => $categories,
+            'allProducts'    => $allProducts,
+            'rooms'          => $rooms,
+            'productRoomIds' => $productRoomIds,
+            'unitAssignments' => $unitAssignments,
         ]);
     }
 
@@ -247,7 +299,7 @@ class ProductController extends Controller
             'promo_label' => 'nullable|string|max:100',
             'base_price' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
-            'product_type' => 'nullable|string|in:private_office,share_desk,private_room,virtual_office',
+            'product_type' => 'nullable|string|in:private_office,share_desk,private_room,meeting_room,virtual_office',
             'open_time' => 'nullable|string|max:5',
             'close_time' => 'nullable|string|max:5',
             'is_active' => 'boolean',
@@ -285,6 +337,11 @@ class ProductController extends Controller
             // Recommendations
             'recommendations' => 'nullable|array',
             'recommendations.*' => 'exists:products,id',
+
+            // Rooms
+            'room_ids'         => 'nullable|array',
+            'room_ids.*'       => 'exists:rooms,id',
+            'unit_assignments' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -362,6 +419,41 @@ class ProductController extends Controller
                     ]);
                 }
             }
+
+            // Sync rooms + per-unit assignments
+            $roomIds = array_map('intval', $validated['room_ids'] ?? []);
+            $unitAssignments = $validated['unit_assignments'] ?? [];
+
+            // Bersihkan unit_product_ids untuk semua multi-unit rooms yang masih di-assign
+            $allMultiUnitRooms = \App\Models\Room::where('unit_count', '>', 1)->get();
+            foreach ($allMultiUnitRooms as $room) {
+                $unitProductIds = $room->unit_product_ids ?? [];
+                $changed = false;
+                for ($i = 0; $i < ($room->unit_count ?? 1); $i++) {
+                    if (!isset($unitProductIds[$i])) continue;
+                    $before = count((array) $unitProductIds[$i]);
+                    $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn($id) => (int)$id !== $product->id));
+                    if (count($unitProductIds[$i]) !== $before) $changed = true;
+                }
+                if ($changed) { $room->unit_product_ids = $unitProductIds; $room->save(); }
+            }
+
+            foreach ($unitAssignments as $roomId => $unitIndices) {
+                $room = \App\Models\Room::find($roomId);
+                if (!$room) continue;
+                $unitProductIds = $room->unit_product_ids ?? [];
+                foreach ((array) $unitIndices as $unitIdx) {
+                    $unitIdx = (int) $unitIdx;
+                    if (!isset($unitProductIds[$unitIdx])) $unitProductIds[$unitIdx] = [];
+                    if (!in_array($product->id, $unitProductIds[$unitIdx])) {
+                        $unitProductIds[$unitIdx][] = $product->id;
+                    }
+                }
+                $room->unit_product_ids = $unitProductIds;
+                $room->save();
+                $roomIds[] = (int) $roomId;
+            }
+            $product->rooms()->sync(array_unique($roomIds));
 
             DB::commit();
 

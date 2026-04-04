@@ -32,6 +32,9 @@ class CartController extends Controller
             'price' => 'required|numeric|min:0',
             'booking_date' => 'nullable|date|after_or_equal:today',
             'booking_start_time' => 'nullable|string',
+            'room_id' => 'nullable|exists:rooms,id',
+            'unit_index' => 'nullable|integer|min:0',
+            'unit_name' => 'nullable|string|max:100',
         ]);
 
         $cart = session('cart', []);
@@ -43,7 +46,7 @@ class CartController extends Controller
 
             // Booking products: availability is date/time-specific,
             // checked via BookingAvailabilityController. Skip global stock_quantity check.
-            $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+            $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office']);
 
             if (!$isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
                 return back()->withErrors(['stock' => 'Stok tidak mencukupi']);
@@ -55,20 +58,28 @@ class CartController extends Controller
             $product = Product::find($validated['product_id']);
 
             // Skip time validation for private_office (date-only booking)
-            if (in_array($product->product_type, ['share_desk', 'private_room'])) {
+            if (in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room'])) {
                 $variant = ProductVariant::find($validated['variant_id']);
                 $durationHours = $variant->duration_hours ?? 1;
+
+                // Gunakan close_time dari produk, fallback 17:00
+                $closeTimeParts = explode(':', $product->close_time ?? '17:00');
+                $closeMinutes   = ((int) $closeTimeParts[0]) * 60 + ((int) ($closeTimeParts[1] ?? 0));
+                $openTimeParts  = explode(':', $product->open_time ?? '08:00');
+                $openMinutes    = ((int) $openTimeParts[0]) * 60 + ((int) ($openTimeParts[1] ?? 0));
 
                 $timeParts = explode(':', $validated['booking_start_time']);
                 $startMinutes = ((int) $timeParts[0]) * 60 + ((int) ($timeParts[1] ?? 0));
                 $endMinutes = $startMinutes + ($durationHours * 60);
 
-                if ($endMinutes > 17 * 60) {
-                    return back()->withErrors(['booking' => 'Booking melebihi jam operasional (17:00)']);
+                if ($endMinutes > $closeMinutes) {
+                    $closeLabel = $product->close_time ?? '17:00';
+                    return back()->withErrors(['booking' => "Booking melebihi jam operasional ({$closeLabel})"]);
                 }
 
-                if ($startMinutes < 8 * 60) {
-                    return back()->withErrors(['booking' => 'Jam operasional dimulai dari 08:00']);
+                if ($startMinutes < $openMinutes) {
+                    $openLabel = $product->open_time ?? '08:00';
+                    return back()->withErrors(['booking' => "Jam operasional dimulai dari {$openLabel}"]);
                 }
 
                 // Reject past times for today
@@ -92,6 +103,9 @@ class CartController extends Controller
             'subtotal' => $validated['price'] * $validated['quantity'],
             'booking_date' => $validated['booking_date'] ?? null,
             'booking_start_time' => $validated['booking_start_time'] ?? null,
+            'room_id' => $validated['room_id'] ?? null,
+            'unit_index' => $validated['unit_index'] ?? null,
+            'unit_name' => $validated['unit_name'] ?? null,
         ];
 
         $cart[] = $cartItem;
@@ -129,7 +143,7 @@ class CartController extends Controller
                 if ($item['variant_id']) {
                     $variant = ProductVariant::find($item['variant_id']);
                     $product = Product::find($item['product_id']);
-                    $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'private_office', 'virtual_office']);
+                    $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office']);
 
                     if (!$isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
                         return back()->withErrors(['stock' => 'Stok tidak mencukupi']);

@@ -18,6 +18,8 @@ import {
   UsersIcon,
   DocumentTextIcon,
   ComputerDesktopIcon,
+  StarIcon,
+  BuildingOfficeIcon,
 } from '@heroicons/react/24/outline';
 
 export default function AdminLayout({ children }) {
@@ -121,6 +123,18 @@ export default function AdminLayout({ children }) {
       href: '/admin/news',
       icon: NewspaperIcon,
       current: url.startsWith('/admin/news'),
+    },
+    {
+      name: 'Ruangan',
+      href: '/admin/rooms',
+      icon: BuildingOfficeIcon,
+      current: url.startsWith('/admin/rooms'),
+    },
+    {
+      name: 'Ulasan',
+      href: '/admin/reviews',
+      icon: StarIcon,
+      current: url.startsWith('/admin/reviews'),
     },
   ];
 

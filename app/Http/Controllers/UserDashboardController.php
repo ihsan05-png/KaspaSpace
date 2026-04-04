@@ -31,7 +31,7 @@ class UserDashboardController extends Controller
         
         // Get user orders
         $orders = Order::where('customer_email', $user->email)
-            ->with('items')
+            ->with('items.product:id,slug')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -81,8 +81,12 @@ class UserDashboardController extends Controller
             ->where('payment_status', 'paid')
             ->sum('total');
         
+        // Product IDs yang sudah di-review user ini
+        $reviewedProductIds = $user->reviews()->pluck('product_id')->toArray();
+
         return Inertia::render('User/Dashboard', [
             'orders' => $orders,
+            'reviewedProductIds' => $reviewedProductIds,
             'activeDiscounts' => $activeDiscounts,
             'stats' => [
                 'totalOrders' => $totalOrders,

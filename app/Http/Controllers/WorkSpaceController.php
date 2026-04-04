@@ -23,7 +23,7 @@ class WorkspaceController extends Controller
             ]);
         }
         
-        $products = Product::with(['category:id,name,slug', 'variants'])
+        $products = Product::with(['category:id,name,slug', 'variants', 'rooms'])
             ->where('category_id', $category->id)
             ->where('is_active', true)
             ->select('id', 'title', 'slug', 'subtitle', 'description', 'promo_label', 'base_price', 'images', 'is_featured', 'custom_options', 'category_id', 'product_type', 'open_time', 'close_time')

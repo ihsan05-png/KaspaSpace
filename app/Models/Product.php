@@ -80,6 +80,26 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function rooms()
+    {
+        return $this->belongsToMany(Room::class, 'product_rooms');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function approvedReviews()
+    {
+        return $this->hasMany(Review::class)->where('is_approved', true);
+    }
+
+    public function getAvgRatingAttribute()
+    {
+        return $this->reviews()->avg('rating');
+    }
+
     public function recommendations()
     {
         return $this->hasMany(ProductRecommendation::class);

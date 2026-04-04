@@ -4,16 +4,51 @@ import Navbar from '@/Components/Navbar';
 import Footer from '@/Components/Footer';
 import CartDrawer from '@/Components/CartDrawer';
 import { IMAGE_PLACEHOLDER } from '@/utils/placeholders';
-import { ChevronLeft, ChevronRight, ShoppingCart, Plus, Minus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, Plus, Minus, Star } from 'lucide-react';
 import BookingDateTimePicker from '@/Components/BookingDateTimePicker';
 
-const ProductShow = ({ product }) => {
+// Komponen bintang rating
+const StarRating = ({ value, onChange, readonly = false }) => {
+    const [hovered, setHovered] = useState(0);
+    return (
+        <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                    key={s}
+                    type={readonly ? 'button' : 'button'}
+                    disabled={readonly}
+                    onClick={() => !readonly && onChange && onChange(s)}
+                    onMouseEnter={() => !readonly && setHovered(s)}
+                    onMouseLeave={() => !readonly && setHovered(0)}
+                    className={`focus:outline-none ${readonly ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                    <Star
+                        className={`w-5 h-5 transition-colors ${
+                            s <= (hovered || value)
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-gray-300'
+                        }`}
+                    />
+                </button>
+            ))}
+        </div>
+    );
+};
+
+const ProductShow = ({ product, rooms = [], relatedProducts = [], reviews = [], avgRating, reviewCount, canReview, userHasReviewed }) => {
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [quantity, setQuantity] = useState(1);
     const [customOptions, setCustomOptions] = useState({});
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [bookingData, setBookingData] = useState({ date: null, startTime: null, endTime: null });
+
+    // Review state
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [showReviewForm, setShowReviewForm] = useState(false);
+    const { flash, auth } = usePage().props;
 
     const isCoworkingBooking = ['share_desk', 'private_room'].includes(product.product_type);
 
@@ -76,6 +111,17 @@ const ProductShow = ({ product }) => {
             return;
         }
 
+        if (isCoworkingBooking && rooms.length > 0 && !bookingData.roomId) {
+            alert('Silakan pilih ruangan terlebih dahulu');
+            return;
+        }
+
+        // Jika room punya multi-unit, wajib pilih unit
+        if (isCoworkingBooking && bookingData._pendingUnit) {
+            alert('Silakan pilih unit ruangan terlebih dahulu');
+            return;
+        }
+
         const data = {
             product_id: product.id,
             product_name: product.title,
@@ -86,6 +132,9 @@ const ProductShow = ({ product }) => {
             price: selectedVariant.price,
             booking_date: bookingData.date || null,
             booking_start_time: bookingData.startTime || null,
+            room_id: bookingData.roomId || null,
+            unit_index: bookingData.unitIndex ?? null,
+            unit_name: bookingData.unitName || null,
         };
 
         router.post('/cart/add', data, {
@@ -246,6 +295,9 @@ const ProductShow = ({ product }) => {
                                     productType={product.product_type}
                                     selectedVariant={selectedVariant}
                                     onBookingChange={setBookingData}
+                                    productOpen={product.open_time || null}
+                                    productClose={product.close_time || null}
+                                    rooms={rooms}
                                 />
                             </div>
                         )}
@@ -745,8 +797,7 @@ const ProductShow = ({ product }) => {
 
                 {/* Private Room Package Details */}
                 {(product.product_type === 'private_room' ||
-                  product.title?.toLowerCase().includes('private room') ||
-                  product.title?.toLowerCase().includes('meeting room')) && (
+                  product.title?.toLowerCase().includes('private room')) && (
                     <div className="mt-12">
                         {/* Intro Section */}
                         <div className="text-center mb-8">
@@ -846,6 +897,78 @@ const ProductShow = ({ product }) => {
                                     <p className="font-bold text-gray-800 mb-2">Wawancara & Konsultasi</p>
                                     <p className="text-sm text-gray-700">Sesi wawancara kandidat, konsultasi bisnis privat, atau coaching session yang membutuhkan suasana tenang dan profesional.</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Meeting Room Package Details */}
+                {(product.product_type === 'meeting_room' ||
+                  product.title?.toLowerCase().includes('meeting room')) && (
+                    <div className="mt-12">
+                        {/* Intro */}
+                        <div className="text-center mb-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Fokus Produktivitas</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto mb-6">
+                                Mau meeting tapi fasilitas kurang, mampir cafe takut jajan terus, atau mau ketemu tamu penting? Solusinya pakai meeting room di Kaspa Space saja! Proyektor, white board, printer, resepsionis, FnB, dan fasilitas lainnya tersedia untuk menghemat waktu dan tenaga Anda, karena semua tersedia lengkap di satu tempat. Ingat! Sesuaikan kebutuhan bukan gengsi.
+                            </p>
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Apa Itu Meeting Room?</h2>
+                            <p className="text-gray-700 leading-relaxed max-w-4xl mx-auto">
+                                Meeting room adalah ruangan yang didesain untuk kegiatan rapat, pertemuan, presentasi, interview, atau menemui tamu penting. Jika Anda membutuhkan bantuan untuk menerima dan mempersilakan tamu, resepsionis kami siap membantu.
+                            </p>
+                        </div>
+
+                        {/* Paket Meeting Room */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden mb-6">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Paket Meeting Room</h3>
+                            </div>
+
+                            {[
+                                { label: 'Basic', kursi: 4 },
+                                { label: 'Standard', kursi: 8 },
+                                { label: 'Plus', kursi: 12 },
+                            ].map((pkg, i) => (
+                                <div key={pkg.label} className={`px-4 py-4 ${i < 2 ? 'border-b border-gray-200' : ''}`}>
+                                    <p className="font-bold text-gray-800 mb-2">{pkg.label}:</p>
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Jasa menerima, informator, dan komunikator tamu</li>
+                                        <li>Luas 13,5 m² dengan {pkg.kursi} kursi</li>
+                                        <li>AC, Wi-Fi 100 Mbps, 8 stop kontak, whiteboard, &amp; LCD proyektor</li>
+                                        <li>Lobi, mushola, pantry dengan dispenser air panas dingin &amp; teh</li>
+                                        <li>Gratis air minum kemasan &amp; tisu</li>
+                                        <li>Gratis akses eBook di eLibrary</li>
+                                    </ul>
+                                </div>
+                            ))}
+
+                            {/* Meeting Room Untuk Mahasiswa */}
+                            <div className="border-t border-gray-300">
+                                <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                                    <h3 className="font-bold text-center text-gray-800">Meeting Room Untuk Mahasiswa</h3>
+                                </div>
+                                <div className="px-4 py-4">
+                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                        <li>Potongan harga 50%</li>
+                                        <li>Syarat dan ketentuan berlaku</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Ketentuan */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden">
+                            <div className="bg-gray-100 px-4 py-3 border-b border-gray-300">
+                                <h3 className="font-bold text-center text-gray-800">Ketentuan Penggunaan</h3>
+                            </div>
+                            <div className="px-4 py-4">
+                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                    <li>Jam operasional {openTime} – {closeTime} WIB</li>
+                                    <li>Booking per jam, minimal 1 jam</li>
+                                    <li>Ruangan dikembalikan tepat waktu sesuai booking</li>
+                                    <li>Pemesanan dapat dilakukan minimal 30 menit sebelumnya</li>
+                                    <li>Kapasitas sesuai paket yang dipilih (Basic 4, Standard 8, Plus 12 kursi)</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -1134,42 +1257,245 @@ const ProductShow = ({ product }) => {
                     </div>
                 )}
 
-                {/* Recommended Products */}
-                {product.recommendedProducts && product.recommendedProducts.length > 0 && (
+                {/* Related Products — same category, auto */}
+                {relatedProducts.length > 0 && (
                     <div className="mt-16">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Produk Terkait</h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {product.recommendedProducts.map((rec) => (
-                                <a
-                                    key={rec.id}
-                                    href={`/product/${rec.slug}`}
-                                    className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition"
-                                >
-                                    <div className="aspect-square bg-gray-100">
-                                        <img
-                                            src={rec.images && rec.images[0]
-                                                ? `/storage/${rec.images[0]}`
-                                                : IMAGE_PLACEHOLDER}
-                                            alt={rec.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition"
-                                            onError={(e) => {
-                                                e.target.src = IMAGE_PLACEHOLDER;
-                                            }}
-                                        />
+                            {relatedProducts.map((rec) => {
+                                const minPrice = rec.variants?.length > 0
+                                    ? Math.min(...rec.variants.map(v => v.price))
+                                    : (rec.base_price || 0);
+                                const fullStars = Math.round(rec.avg_rating || 0);
+                                return (
+                                    <div key={rec.id} className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition flex flex-col">
+                                        <a href={`/product/${rec.slug}`} className="block overflow-hidden">
+                                            <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
+                                                <img
+                                                    src={rec.images && rec.images[0]
+                                                        ? `/storage/${rec.images[0]}`
+                                                        : IMAGE_PLACEHOLDER}
+                                                    alt={rec.title}
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                                    onError={(e) => { e.target.src = IMAGE_PLACEHOLDER; }}
+                                                />
+                                            </div>
+                                        </a>
+                                        <div className="p-4 flex flex-col flex-1">
+                                            <a href={`/product/${rec.slug}`}>
+                                                <h3 className="font-bold text-gray-900 text-sm line-clamp-2 mb-2 leading-snug hover:text-blue-600 transition">
+                                                    {rec.title}
+                                                </h3>
+                                            </a>
+                                            {/* Rating */}
+                                            {rec.review_count > 0 && (
+                                                <div className="flex items-center gap-1 mb-2">
+                                                    {[1,2,3,4,5].map(s => (
+                                                        <Star key={s} className={`w-3.5 h-3.5 ${s <= fullStars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                                                    ))}
+                                                    <span className="text-xs text-gray-500 ml-1">({rec.review_count})</span>
+                                                </div>
+                                            )}
+                                            <p className="text-gray-800 font-semibold text-sm mb-3">
+                                                Dari Rp{Number(minPrice).toLocaleString('id-ID')}
+                                            </p>
+                                            <div className="mt-auto">
+                                                <a
+                                                    href={`/product/${rec.slug}`}
+                                                    className="block w-full text-center border border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white py-2 px-4 rounded-full text-sm font-medium transition duration-200"
+                                                >
+                                                    Pesan Sekarang
+                                                </a>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="p-3">
-                                        <h3 className="font-medium text-gray-900 text-sm line-clamp-2">
-                                            {rec.title}
-                                        </h3>
-                                        <p className="text-blue-600 font-semibold mt-1">
-                                            Rp{Number(rec.variants?.[0]?.price || rec.base_price || 0).toLocaleString('id-ID')}
-                                        </p>
-                                    </div>
-                                </a>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* ===== SEKSI ULASAN ===== */}
+            <div id="ulasan" className="bg-gray-50 py-14">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                <h2 className="text-2xl font-bold text-gray-900 mb-8">Ulasan Pelanggan</h2>
+
+                {/* Flash */}
+                {flash?.success && (
+                    <div className="mb-6 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+                        {flash.success}
+                    </div>
+                )}
+                {flash?.error && (
+                    <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                        {flash.error}
+                    </div>
+                )}
+
+                {/* Rating Summary Card */}
+                {(() => {
+                    const starCounts = [5,4,3,2,1].map(s => ({
+                        star: s,
+                        count: reviews.filter(r => r.rating === s).length,
+                    }));
+                    return (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-8">
+                            <div className="flex flex-col sm:flex-row items-start gap-8">
+                                {/* Kiri: skor besar */}
+                                <div className="flex flex-col items-center sm:items-start gap-3 sm:min-w-[180px] w-full sm:w-auto">
+                                    <div className="flex items-end gap-2">
+                                        <span className="text-6xl font-extrabold text-gray-900 leading-none">{avgRating ?? '0'}</span>
+                                        <span className="text-xl text-gray-400 mb-1">/ 5</span>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {[1,2,3,4,5].map(s => (
+                                            <Star key={s} className={`w-6 h-6 ${s <= Math.round(avgRating || 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
+                                        ))}
+                                    </div>
+                                    <span className="text-sm text-gray-500">{reviewCount} ulasan</span>
+                                    {/* Tombol */}
+                                    {canReview && !userHasReviewed && (
+                                        <button
+                                            onClick={() => setShowReviewForm(v => !v)}
+                                            className="mt-2 px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full text-sm font-semibold transition shadow-sm"
+                                        >
+                                            {showReviewForm ? 'Tutup Form' : 'Tulis Ulasan'}
+                                        </button>
+                                    )}
+                                    {!auth?.user && (
+                                        <a href="/login" className="mt-2 px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full text-sm font-semibold transition shadow-sm">
+                                            Tulis Ulasan
+                                        </a>
+                                    )}
+                                    {userHasReviewed && (
+                                        <span className="mt-2 inline-flex items-center gap-1.5 text-sm text-green-600 font-medium bg-green-50 px-3 py-1.5 rounded-full">
+                                            <Star className="w-3.5 h-3.5 fill-green-500 text-green-500" /> Sudah diulas
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Divider */}
+                                <div className="hidden sm:block w-px bg-gray-100 self-stretch" />
+
+                                {/* Kanan: bar distribusi */}
+                                <div className="flex-1 space-y-2.5 w-full">
+                                    {starCounts.map(({ star, count }) => (
+                                        <div key={star} className="flex items-center gap-3">
+                                            <div className="flex gap-0.5 w-24 flex-shrink-0">
+                                                {[1,2,3,4,5].map(s => (
+                                                    <Star key={s} className={`w-3.5 h-3.5 ${s <= star ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
+                                                ))}
+                                            </div>
+                                            <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-yellow-400 rounded-full transition-all duration-500"
+                                                    style={{ width: reviewCount > 0 ? `${(count / reviewCount) * 100}%` : '0%' }}
+                                                />
+                                            </div>
+                                            <span className="text-sm text-gray-500 w-6 text-right font-medium">{count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Form tulis review */}
+                {canReview && !userHasReviewed && showReviewForm && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 max-w-xl">
+                        <h3 className="font-bold text-gray-900 mb-5 text-lg">Tulis Ulasan Anda</h3>
+                        <div className="mb-5">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                            <StarRating value={reviewRating} onChange={setReviewRating} />
+                        </div>
+                        <div className="mb-5">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Komentar</label>
+                            <textarea
+                                value={reviewComment}
+                                onChange={(e) => setReviewComment(e.target.value)}
+                                rows={4}
+                                maxLength={1000}
+                                placeholder="Ceritakan pengalaman Anda menggunakan produk ini..."
+                                className="w-full border border-gray-200 rounded-xl text-sm p-3.5 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 resize-none bg-gray-50"
+                            />
+                            <p className="text-xs text-gray-400 text-right mt-1">{reviewComment.length}/1000</p>
+                        </div>
+                        <button
+                            disabled={reviewSubmitting || !reviewComment.trim()}
+                            onClick={() => {
+                                setReviewSubmitting(true);
+                                router.post('/reviews', {
+                                    product_id: product.id,
+                                    rating: reviewRating,
+                                    comment: reviewComment,
+                                }, {
+                                    preserveScroll: true,
+                                    onFinish: () => setReviewSubmitting(false),
+                                    onSuccess: () => { setReviewComment(''); setShowReviewForm(false); },
+                                });
+                            }}
+                            className="px-7 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-full hover:bg-gray-700 disabled:opacity-50 transition"
+                        >
+                            {reviewSubmitting ? 'Mengirim...' : 'Kirim Ulasan'}
+                        </button>
+                    </div>
+                )}
+
+                {/* Daftar review */}
+                <div className="space-y-4">
+                    {reviews.length === 0 ? (
+                        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                            <Star className="w-12 h-12 mx-auto mb-3 fill-gray-100 text-gray-200" />
+                            <p className="text-gray-400 font-medium">Belum ada ulasan untuk produk ini.</p>
+                            <p className="text-gray-400 text-sm mt-1">Jadilah yang pertama memberikan ulasan!</p>
+                        </div>
+                    ) : reviews.map((review) => (
+                        <div key={review.id} className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 shadow-sm hover:shadow-md transition">
+                            {/* Header: avatar + nama + bintang + tanggal */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-white font-bold text-sm">
+                                            {review.user.name?.charAt(0).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-gray-900 text-sm leading-tight">{review.user.name}</p>
+                                        <div className="flex gap-0.5 mt-1">
+                                            {[1,2,3,4,5].map(s => (
+                                                <Star key={s} className={`w-3.5 h-3.5 ${s <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                    <span className="text-xs text-gray-400">{review.created_at}</span>
+                                    {review.is_mine && (
+                                        <button
+                                            onClick={() => { if (confirm('Hapus ulasan ini?')) router.delete(`/reviews/${review.id}`, { preserveScroll: true }); }}
+                                            className="text-xs text-red-400 hover:text-red-600 transition font-medium"
+                                        >
+                                            Hapus
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            {review.comment && (
+                                <p className="text-gray-700 text-sm leading-relaxed ml-13">{review.comment}</p>
+                            )}
+                            {review.admin_reply && (
+                                <div className="mt-4 ml-13 bg-blue-50 border border-blue-100 rounded-xl py-3 px-4">
+                                    <p className="text-xs font-semibold text-blue-700 mb-1">Balasan dari Tim Kaspa</p>
+                                    <p className="text-sm text-gray-700">{review.admin_reply}</p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+              </div>
             </div>
 
             <Footer />
