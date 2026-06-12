@@ -46,7 +46,8 @@ class UserDashboardController extends Controller
             ->toArray();
 
         // Get active discounts (available for user, excluding already used ones)
-        $activeDiscounts = Discount::where('is_active', true)
+        $activeDiscounts = Discount::select('id','code','name','type','value','min_purchase','usage_limit','usage_count','start_date','end_date','created_at')
+            ->where('is_active', true)
             ->where(function($query) {
                 $query->whereNull('start_date')
                     ->orWhere('start_date', '<=', now());
@@ -60,11 +61,9 @@ class UserDashboardController extends Controller
                     ->orWhereRaw('usage_count < usage_limit');
             })
             ->whereHas('users', function($q) use ($user) {
-                // Hanya tampilkan diskon yang user-nya di-assign ke user ini
                 $q->where('users.id', $user->id);
             })
             ->whereNotIn('id', $usedDiscountIds)
-            ->with('users')
             ->orderBy('created_at', 'desc')
             ->get();
         

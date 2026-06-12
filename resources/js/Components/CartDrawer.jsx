@@ -1,254 +1,265 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { X, ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react';
+import { X, ShoppingCart, Minus, Plus, Trash2, ArrowRight, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
+
+const NAVY = '#1a2e5a';
+const fmtRp = (n) => `Rp${Number(n).toLocaleString('id-ID')}`;
 
 export default function CartDrawer({ isOpen, onClose }) {
     const { props } = usePage();
     const [localCart, setLocalCart] = useState(props.cart || []);
     const debounceTimers = useRef({});
 
-    // Sync with server cart when props change
     useEffect(() => {
         setLocalCart(props.cart || []);
     }, [props.cart]);
 
-    const calculateSubtotal = () => {
-        return localCart.reduce((total, item) => {
-            return total + (parseFloat(item.price) * parseInt(item.quantity));
-        }, 0);
-    };
+    const subtotal = localCart.reduce((t, item) => t + parseFloat(item.price) * parseInt(item.quantity), 0);
 
-    const updateQuantity = (itemId, newQuantity) => {
-        // If quantity becomes 0, remove item instead
-        if (newQuantity < 1) {
-            removeItem(itemId);
-            return;
-        }
-        
-        // Update UI immediately (optimistic update)
-        setLocalCart(prevCart => 
-            prevCart.map(item => 
-                item.id === itemId 
-                    ? { ...item, quantity: newQuantity }
-                    : item
-            )
-        );
-
-        // Clear previous timer for this item
-        if (debounceTimers.current[itemId]) {
-            clearTimeout(debounceTimers.current[itemId]);
-        }
-
-        // Debounce: Wait 800ms before sending to server
+    const updateQuantity = (itemId, newQty) => {
+        if (newQty < 1) { removeItem(itemId); return; }
+        setLocalCart(prev => prev.map(i => i.id === itemId ? { ...i, quantity: newQty } : i));
+        if (debounceTimers.current[itemId]) clearTimeout(debounceTimers.current[itemId]);
         debounceTimers.current[itemId] = setTimeout(() => {
-            axios.post('/cart/update-quantity', {
-                id: itemId,
-                quantity: newQuantity
-            }).then(() => {
-                // Reload cart props to update badge
-                router.reload({ only: ['cart'] });
-            }).catch(error => {
-                console.error('Failed to update cart:', error);
-                // Revert on error
-                router.reload({ only: ['cart'] });
-            });
+            axios.post('/cart/update-quantity', { id: itemId, quantity: newQty })
+                .then(() => router.reload({ only: ['cart'] }))
+                .catch(() => router.reload({ only: ['cart'] }));
         }, 800);
     };
 
     const removeItem = (itemId) => {
-        // Update UI immediately (optimistic update)
-        const previousCart = [...localCart];
-        setLocalCart(prevCart => prevCart.filter(item => item.id !== itemId));
-
-        // Send to server
-        axios.post('/cart/remove', {
-            id: itemId
-        }).then(() => {
-            // Reload cart props to update badge
-            router.reload({ only: ['cart'] });
-        }).catch(error => {
-            console.error('Failed to remove item:', error);
-            // Revert on error
-            setLocalCart(previousCart);
-        });
+        const prev = [...localCart];
+        setLocalCart(c => c.filter(i => i.id !== itemId));
+        axios.post('/cart/remove', { id: itemId })
+            .then(() => router.reload({ only: ['cart'] }))
+            .catch(() => setLocalCart(prev));
     };
-
-    const handleCheckout = () => {
-        router.visit('/checkout');
-    };
-
-    const subtotal = calculateSubtotal();
 
     return (
         <>
             {/* Backdrop */}
-            <div 
-                className={`fixed inset-0 bg-black/20 z-[9998] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            <div
                 onClick={onClose}
+                style={{
+                    position: 'fixed', inset: 0, zIndex: 9998,
+                    background: 'rgba(15,23,42,0.45)',
+                    backdropFilter: 'blur(2px)',
+                    transition: 'opacity 0.3s',
+                    opacity: isOpen ? 1 : 0,
+                    pointerEvents: isOpen ? 'auto' : 'none',
+                }}
             />
 
             {/* Drawer */}
-            <div className={`fixed right-0 top-0 h-full w-full sm:w-[480px] bg-white shadow-2xl z-[9999] flex flex-col transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                {/* Header */}
-                <div className="bg-white px-6 py-5 flex items-center justify-between border-b border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900">Keranjang belanja</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        type="button"
-                    >
-                        <X className="w-6 h-6 text-gray-600" />
-                    </button>
+            <div style={{
+                position: 'fixed', top: 0, right: 0, bottom: 0,
+                width: '100%', maxWidth: 420,
+                background: '#fff',
+                zIndex: 9999,
+                display: 'flex', flexDirection: 'column',
+                boxShadow: '-8px 0 40px rgba(26,46,90,0.18)',
+                transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+                transition: 'transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+                fontFamily: 'Inter, sans-serif',
+            }}>
+
+                {/* ── Header ── */}
+                <div style={{ padding: '22px 24px 0', background: '#fff', borderBottom: '1px solid #f0f2f8' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div>
+                            <h2 style={{ fontSize: 20, fontWeight: 800, color: NAVY, margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                Keranjang Belanja
+                            </h2>
+                            <p style={{ fontSize: 12, color: '#9ca3af', margin: '3px 0 0' }}>Kaspa Space</p>
+                        </div>
+                        <button onClick={onClose} style={{
+                            width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
+                            background: '#f9fafb', cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <X size={16} color="#6b7280" />
+                        </button>
+                    </div>
+
+                    {/* Item count badge */}
+                    {localCart.length > 0 && (
+                        <div style={{ paddingBottom: 12 }}>
+                            <span style={{ fontSize: 13, color: '#6b7280' }}>
+                                {localCart.length} item dalam keranjang
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto bg-gray-50">
+                {/* ── Content ── */}
+                <div style={{ flex: 1, overflowY: 'auto', background: '#f8f9fc' }}>
                     {localCart.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                            <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                <ShoppingCart className="w-16 h-16 text-gray-400" />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40, textAlign: 'center' }}>
+                            <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#eef2f7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                                <ShoppingCart size={36} color="#9ca3af" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                                Keranjang Kosong
-                            </h3>
-                            <p className="text-gray-600 mb-6">
-                                Belum ada produk di keranjang Anda
-                            </p>
-                            <button
-                                onClick={() => router.visit('/workspace/coworking-space')}
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                            >
+                            <p style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>Keranjang Kosong</p>
+                            <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 20 }}>Belum ada produk di keranjang Anda</p>
+                            <button onClick={() => { onClose(); router.visit('/workspace/coworking-space'); }} style={{
+                                background: '#005bbf', color: '#fff', padding: '10px 24px',
+                                borderRadius: 8, border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 14,
+                            }}>
                                 Mulai Belanja
                             </button>
                         </div>
                     ) : (
-                        <div className="p-6">
-                            <p className="text-sm text-gray-600 mb-4">
-                                {localCart.length} item dalam keranjang
-                            </p>
+                        <div style={{ padding: '16px 20px' }}>
+                            {/* Items */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {localCart.map((item) => {
+                                    const itemSubtotal = parseFloat(item.price) * parseInt(item.quantity);
+                                    const imgSrc = item.product_image || null;
 
-                            {/* Cart Items */}
-                            <div className="space-y-4 mb-6">
-                                {localCart.map((item, index) => (
-                                    <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                                        {/* Product Info */}
-                                        <div className="mb-3">
-                                            <h3 className="font-semibold text-gray-900 mb-1">
-                                                {item.product_name}
-                                            </h3>
-                                            <p className="text-sm text-blue-600 mb-1">
-                                                Paket: {item.variant_name}
-                                            </p>
-                                            
-                                            {/* Custom Options */}
-                                            {item.custom_options && Object.keys(item.custom_options).length > 0 && (
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    {Object.entries(item.custom_options).map(([key, value]) => (
-                                                        <div key={key}>
-                                                            {key}: {value}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Booking Info */}
-                                            {item.booking_date && (
-                                                <div className="text-xs text-green-700 mt-1 bg-green-50 px-2 py-1 rounded border border-green-200">
-                                                    {['private_office', 'virtual_office'].includes(item.product_type) ? (
-                                                        // Date-only booking: show only date
-                                                        <>Mulai sewa: {new Date(item.booking_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                                                    ) : (
-                                                        // Hourly booking: show date + time
-                                                        <>Booking: {item.booking_date} | {item.booking_start_time}</>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            <p className="text-lg font-bold text-blue-900 mt-2">
-                                                Rp{parseFloat(item.price).toLocaleString('id-ID')}
-                                            </p>
-                                            <p className="text-xs text-gray-500">per item</p>
-                                        </div>
-
-                                        {/* Quantity Controls & Delete */}
-                                        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center transition-colors"
-                                                >
-                                                    <Minus className="w-4 h-4" />
-                                                </button>
-                                                <span className="w-10 text-center font-semibold text-gray-900">
-                                                    {item.quantity}
-                                                </span>
-                                                <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                    className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center transition-colors"
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                </button>
+                                    return (
+                                        <div key={item.id} style={{
+                                            background: '#fff', borderRadius: 12,
+                                            padding: '14px', display: 'flex', gap: 12,
+                                            boxShadow: '0 1px 4px rgba(26,46,90,0.07)',
+                                        }}>
+                                            {/* Thumbnail */}
+                                            <div style={{
+                                                width: 64, height: 64, borderRadius: 10, overflow: 'hidden',
+                                                flexShrink: 0, background: '#eef2f7',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                {imgSrc ? (
+                                                    <img src={imgSrc} alt={item.product_name}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <ShoppingCart size={24} color="#9ca3af" />
+                                                )}
                                             </div>
 
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <p className="text-xs text-gray-500">Subtotal</p>
-                                                    <p className="font-bold text-gray-900">
-                                                        Rp{(parseFloat(item.price) * parseInt(item.quantity)).toLocaleString('id-ID')}
+                                            {/* Info */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                                    <p style={{ fontSize: 14, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.3 }}>
+                                                        {item.product_name}
                                                     </p>
+                                                    <button onClick={() => removeItem(item.id)} style={{
+                                                        flexShrink: 0, background: 'none', border: 'none',
+                                                        cursor: 'pointer', padding: 2, color: '#ef4444',
+                                                    }}>
+                                                        <Trash2 size={14} />
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => removeItem(item.id)}
-                                                    className="text-red-500 hover:text-red-700 p-2"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
+
+                                                {item.variant_name && (
+                                                    <p style={{ fontSize: 12, color: '#005bbf', margin: '2px 0 0' }}>
+                                                        {item.variant_name}
+                                                    </p>
+                                                )}
+
+                                                {item.booking_date && (
+                                                    <p style={{
+                                                        fontSize: 11, color: '#059669', margin: '4px 0 0',
+                                                        background: '#f0fdf4', borderRadius: 5,
+                                                        padding: '2px 7px', display: 'inline-block',
+                                                    }}>
+                                                        {['private_office', 'virtual_office'].includes(item.product_type)
+                                                            ? `Mulai: ${new Date(item.booking_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                                            : `${item.booking_date} | ${item.booking_start_time}`}
+                                                    </p>
+                                                )}
+
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                                                    {/* Qty control */}
+                                                    <div style={{
+                                                        display: 'flex', alignItems: 'center', gap: 8,
+                                                        background: '#f3f4f6', borderRadius: 8, padding: '3px 8px',
+                                                    }}>
+                                                        <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={{
+                                                            width: 22, height: 22, borderRadius: 5, border: 'none',
+                                                            background: item.quantity <= 1 ? '#e5e7eb' : '#fff',
+                                                            cursor: item.quantity <= 1 ? 'not-allowed' : 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                                                        }} disabled={item.quantity <= 1}>
+                                                            <Minus size={11} color="#374151" />
+                                                        </button>
+                                                        <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, minWidth: 18, textAlign: 'center' }}>
+                                                            {item.quantity}
+                                                        </span>
+                                                        <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={{
+                                                            width: 22, height: 22, borderRadius: 5, border: 'none',
+                                                            background: '#fff', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                                                        }}>
+                                                            <Plus size={11} color="#374151" />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Price */}
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <p style={{ fontSize: 14, fontWeight: 800, color: NAVY, margin: 0 }}>
+                                                            {fmtRp(itemSubtotal)}
+                                                        </p>
+                                                        {item.quantity > 1 && (
+                                                            <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+                                                                {fmtRp(item.price)} /item
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Summary Box */}
-                            <div className="bg-white rounded-lg p-5 shadow-md border border-gray-200">
-                                <h3 className="font-semibold text-gray-900 mb-4">Ringkasan Pesanan</h3>
-                                
-                                <div className="space-y-3 mb-4">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Subtotal</span>
-                                        <span className="font-semibold text-gray-900">
-                                            Rp{subtotal.toLocaleString('id-ID')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 border-t border-gray-200 mb-4">
-                                    <div className="flex justify-between items-center">
-                                        <span className="font-semibold text-gray-900">Total</span>
-                                        <span className="text-2xl font-bold text-blue-600">
-                                            Rp{subtotal.toLocaleString('id-ID')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleCheckout}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-base hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
-                                >
-                                    Lanjutkan ke Pembayaran
-                                </button>
-
-                                <button
-                                    onClick={onClose}
-                                    className="w-full mt-3 text-blue-600 py-2 rounded-lg font-medium text-base hover:bg-blue-50 transition-colors"
-                                >
-                                    Lanjut Belanja
-                                </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
                 </div>
+
+                {/* ── Footer Summary ── */}
+                {localCart.length > 0 && (
+                    <div style={{ background: '#fff', borderTop: '1px solid #f0f2f8', padding: '16px 20px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span style={{ fontSize: 13, color: '#6b7280' }}>Subtotal</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{fmtRp(subtotal)}</span>
+                        </div>
+
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '10px 0', borderTop: '1px dashed #e5e7eb', marginBottom: 14,
+                        }}>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Total</span>
+                            <span style={{ fontSize: 20, fontWeight: 800, color: '#005bbf' }}>{fmtRp(subtotal)}</span>
+                        </div>
+
+                        <button onClick={() => router.visit('/checkout')} style={{
+                            width: '100%', padding: '13px 0', background: '#005bbf',
+                            color: '#fff', border: 'none', borderRadius: 10,
+                            fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            boxShadow: '0 4px 14px rgba(0,91,191,0.28)',
+                            transition: 'opacity 0.2s',
+                        }}>
+                            Lanjutkan ke Pembayaran <ArrowRight size={17} />
+                        </button>
+
+                        <button onClick={onClose} style={{
+                            width: '100%', marginTop: 10, padding: '8px 0',
+                            background: 'none', border: 'none', color: '#005bbf',
+                            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        }}>
+                            Lanjut Belanja
+                        </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 8 }}>
+                            <ShieldCheck size={12} color="#9ca3af" />
+                            <span style={{ fontSize: 10, color: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                Pembayaran aman melalui Kaspa Space
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

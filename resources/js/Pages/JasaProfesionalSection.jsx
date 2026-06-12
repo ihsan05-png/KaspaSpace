@@ -1,289 +1,260 @@
 import React, { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
-import { Link, router } from '@inertiajs/react';
+import { Search, ArrowRight, Shield, Zap, Award } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
 import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
 import ProductModal from "@/Components/ProductModal";
 import CartDrawer from "@/Components/CartDrawer";
 import { IMAGE_PLACEHOLDER } from "@/utils/placeholders";
-import heroBg from '../../images/meeting.jpg';
+import heroBg from '../../images/jasa-hero.jpg';
+
+const getImg = (src) => {
+    if (!src) return IMAGE_PLACEHOLDER;
+    if (src.startsWith('http')) return src;
+    return `/storage/${src}`;
+};
 
 const JasaProfesionalSection = ({ products = [], currentCategory }) => {
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm]           = useState('');
     const [selectedProduct, setSelectedProduct] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isCartOpen, setIsCartOpen] = useState(false);
+    const [isModalOpen, setIsModalOpen]         = useState(false);
+    const [isCartOpen, setIsCartOpen]           = useState(false);
 
+    const filteredProducts = useMemo(() =>
+        products.filter(p =>
+            searchTerm === '' || p.title?.toLowerCase().includes(searchTerm.toLowerCase())
+        ), [products, searchTerm]);
 
-    const filteredProducts = useMemo(() => {
-        return products.filter((product) => {
-            return (
-                searchTerm === '' ||
-                (product.title &&
-                    product.title.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
-        });
-    }, [products, searchTerm]);
-
-    const handleOrderClick = (product) => {
-        setSelectedProduct(product);
-        setIsModalOpen(true);
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setSelectedProduct(null);
-    };
-
-    const handleAddToCart = () => {
-        setIsCartOpen(true);
-    };
+    const handleOrderClick = (product) => { setSelectedProduct(product); setIsModalOpen(true); };
+    const handleCloseModal = () => { setIsModalOpen(false); setSelectedProduct(null); };
+    const handleAddToCart  = () => setIsCartOpen(true);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
+        <div className="min-h-screen antialiased" style={{ backgroundColor: '#f8f9fa', color: '#191c1d', fontFamily: 'Inter, sans-serif' }}>
+            <Head title="Jasa Profesional" />
             <Navbar />
 
-            {/* Hero Section */}
-            <div className="relative text-white overflow-hidden">
-                {/* Background image */}
-                <div
-                    className="absolute inset-0 bg-cover bg-no-repeat"
-                    style={{ backgroundImage: `url(${heroBg})`, backgroundPosition: 'center 70%' }}
-                />
-                {/* Dark overlay */}
-                <div className="absolute inset-0 bg-black/55" />
+            {/* ── HERO ── */}
+            <section className="px-6 lg:px-8 pt-20 pb-28 max-w-7xl mx-auto">
+                {/* Soft background blob */}
+                <div className="absolute inset-x-0 top-0 -z-10 h-[680px] pointer-events-none"
+                    style={{ background: 'linear-gradient(135deg, #f3f4f5 0%, #f8f9fa 50%, #edf0fb 100%)' }} />
 
-                <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-                    {/* Title and Navigation Section */}
-                    <div className="text-center mb-10">
-                        <div className="mb-6">
-                            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 text-white drop-shadow-lg">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+                    {/* Left Text */}
+                    <div className="max-w-2xl">
+                        <h1 className="font-extrabold tracking-tight leading-tight mb-6"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(2.6rem, 5.5vw, 4rem)', color: '#191c1d' }}>
+                            Tingkatkan Bisnis Anda dengan{' '}
+                            <span style={{ background: 'linear-gradient(135deg, #005bbf 0%, #1a73e8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                                 Jasa Profesional
-                            </h1>
-                            <p className="text-base sm:text-lg text-white/85 leading-relaxed drop-shadow">
-                                Jasa profesional yang siap membantu Anda dalam pengurusan izin usaha, perpajakan, sertifikasi ISO, hingga cetak dokumen
-                            </p>
-                        </div>
+                            </span>
+                        </h1>
+                        <p className="text-lg leading-relaxed mb-10" style={{ color: '#414754', maxWidth: '30rem' }}>
+                            Dukungan ahli untuk kebutuhan bisnis Anda — dari legalitas, perpajakan, sertifikasi ISO, hingga cetak dokumen.
+                        </p>
 
-                        {/* Category Navigation */}
-                        <div className="flex flex-wrap justify-center gap-3 mb-8">
-                            <button
-                                onClick={() => router.visit('/workspace/coworking-space')}
-                                className="px-5 py-2 bg-white/15 backdrop-blur-md border border-white/40 text-white rounded-full font-semibold text-sm hover:bg-white/25 transition-all duration-300 hover:scale-105"
-                            >
-                                Coworking Space
-                            </button>
-                            <button
-                                onClick={() => router.visit('/jasa-profesional-section')}
-                                className="px-5 py-2 bg-white text-gray-900 rounded-full font-semibold text-sm shadow-lg hover:bg-gray-100 transition-all duration-300 hover:scale-105"
-                            >
-                                Jasa Profesional
-                            </button>
-                            <button
-                                onClick={() => router.visit('/food-beverage')}
-                                className="px-5 py-2 bg-white/15 backdrop-blur-md border border-white/40 text-white rounded-full font-semibold text-sm hover:bg-white/25 transition-all duration-300 hover:scale-105"
-                            >
-                                Food & Beverage
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="max-w-2xl mx-auto mb-6">
-                        <div className="relative">
-                            <Search
-                                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
-                                size={20}
-                            />
+                        {/* Search Pill */}
+                        <div className="flex items-center rounded-full p-1.5 max-w-md"
+                            style={{ background: '#fff', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', border: '1px solid rgba(193,198,214,0.3)' }}>
+                            <Search className="w-5 h-5 ml-4 mr-2 flex-shrink-0" style={{ color: '#005bbf' }} />
                             <input
                                 type="text"
-                                placeholder="Cari jasa profesional..."
+                                placeholder="Cari layanan (mis. Legalitas, Pajak)..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 rounded-xl text-slate-800 bg-white/95 backdrop-blur-sm border-2 border-white/50 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent shadow-xl placeholder-gray-400 transition-all duration-200"
+                                className="flex-1 bg-transparent border-none outline-none text-base font-medium placeholder:text-gray-400"
+                                style={{ color: '#191c1d' }}
                             />
+                            <button
+                                className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
+                                style={{ background: '#005bbf', color: '#fff' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#1a73e8'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#005bbf'}>
+                                Cari
+                            </button>
                         </div>
+                    </div>
+
+                    {/* Right Image */}
+                    <div className="hidden lg:block relative rounded-3xl overflow-hidden"
+                        style={{ height: '480px', boxShadow: '0 20px 48px rgba(25,28,29,0.10)', border: '1px solid rgba(193,198,214,0.2)' }}>
+                        <img src={heroBg} alt="Jasa Profesional" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0"
+                            style={{ background: 'linear-gradient(to top, rgba(10,12,13,0.35) 0%, transparent 60%)' }} />
                     </div>
                 </div>
-            </div>
+            </section>
 
-            {/* Products Section */}
-            <div className="bg-gradient-to-b from-white via-blue-50/30 to-white">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-                    {/* Section Header */}
-                    <div className="mb-10">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <h2 className="text-2xl lg:text-3xl font-bold text-slate-800 mb-2">
-                                    Produk Jasa Tersedia
-                                </h2>
-                                <p className="text-blue-600 font-medium flex items-center gap-2">
-                                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
-                                    {filteredProducts.length} produk ditemukan
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-12 h-1 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full"></div>
-                                <div className="w-6 h-1 bg-blue-300 rounded-full"></div>
-                                <div className="w-3 h-1 bg-blue-200 rounded-full"></div>
-                            </div>
-                        </div>
+            {/* ── SERVICES GRID ── */}
+            <section className="px-6 lg:px-8 py-20 max-w-7xl mx-auto">
+                <div className="rounded-3xl p-8 lg:p-12" style={{ background: '#f3f4f5' }}>
+                    {/* Header */}
+                    <div className="mb-12">
+                        <h2 className="font-bold tracking-tight mb-3"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)', color: '#191c1d' }}>
+                            Layanan Tersedia
+                        </h2>
+                        <p style={{ color: '#414754', fontSize: '1.05rem' }}>
+                            {filteredProducts.length > 0
+                                ? <><span className="font-semibold" style={{ color: '#005bbf' }}>{filteredProducts.length} layanan</span> siap membantu bisnis Anda</>
+                                : 'Tidak ada layanan yang ditemukan'}
+                        </p>
                     </div>
 
-                    {/* Products Grid */}
                     {filteredProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {filteredProducts.map((product) => (
-                                <div
-                                    key={product.id}
-                                    className="bg-white border border-gray-200 rounded-2xl shadow-md hover:shadow-xl transform hover:-translate-y-2 transition-all duration-300 overflow-hidden group"
-                                >
-                                    {/* Product Image - Link to detail page */}
-                                    <Link
-                                        href={`/product/${product.slug}`}
-                                        className="block relative overflow-hidden bg-gradient-to-br from-blue-50 to-gray-50 cursor-pointer"
-                                    >
-                                        <img
-                                            src={
-                                                product.images && product.images.length > 0
-                                                    ? `/storage/${product.images[0]}`
-                                                    : IMAGE_PLACEHOLDER
-                                            }
-                                            alt={product.title}
-                                            className="w-full h-52 object-cover group-hover:scale-110 transition-transform duration-500"
-                                            onError={(e) => {
-                                                e.target.src = IMAGE_PLACEHOLDER;
-                                            }}
-                                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {filteredProducts.map((product) => {
+                                const minPrice = product.min_price || product.base_price || 0;
+                                const img = product.images?.[0] ? getImg(product.images[0]) : IMAGE_PLACEHOLDER;
+                                return (
+                                    <div key={product.id}
+                                        className="group flex flex-col hover:-translate-y-1 transition-transform duration-300"
+                                        style={{ background: '#fff', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 8px 24px -8px rgba(25,28,29,0.08)', border: '1px solid rgba(193,198,214,0.15)' }}>
 
-                                        {/* Overlay gradient */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                        {/* Image */}
+                                        <Link href={`/product/${product.slug}`} className="block relative overflow-hidden" style={{ height: '16rem' }}>
+                                            <img src={img} alt={product.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                                                onError={(e) => { e.target.src = IMAGE_PLACEHOLDER; }} />
+                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                style={{ background: 'linear-gradient(to top, rgba(10,12,13,0.35), transparent)' }} />
 
-                                        {/* Promo Label */}
-                                        {product.promo_label && (
-                                            <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-lg animate-pulse">
-                                                {product.promo_label}
+                                            {/* Promo badge */}
+                                            {product.promo_label && (
+                                                <div className="absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider"
+                                                    style={{ background: '#ba1a1a', color: '#fff' }}>
+                                                    {product.promo_label}
+                                                </div>
+                                            )}
+
+                                            {/* Category badge */}
+                                            {product.category && (
+                                                <div className="absolute top-4 right-4 text-xs font-medium px-3 py-1.5 rounded-full"
+                                                    style={{ background: 'rgba(0,91,191,0.9)', backdropFilter: 'blur(8px)', color: '#fff' }}>
+                                                    {product.category.name}
+                                                </div>
+                                            )}
+
+                                            {/* Icon badge */}
+                                            <div className="absolute bottom-4 left-4 w-11 h-11 rounded-xl flex items-center justify-center shadow-md"
+                                                style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)' }}>
+                                                <span className="text-lg">📋</span>
                                             </div>
-                                        )}
-
-                                        {/* Category Badge */}
-                                        {product.category && (
-                                            <div className="absolute top-3 right-3 bg-blue-600/95 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium shadow-md">
-                                                {product.category.name}
-                                            </div>
-                                        )}
-                                    </Link>
-
-                                    {/* Product Info */}
-                                    <div className="p-5">
-                                        <Link
-                                            href={`/product/${product.slug}`}
-                                            className="block"
-                                        >
-                                            <h3 className="font-bold text-slate-800 mb-2 line-clamp-2 text-base leading-tight min-h-[48px] group-hover:text-blue-600 transition-colors cursor-pointer">
-                                                {product.title}
-                                            </h3>
                                         </Link>
 
-                                        {/* Subtitle */}
-                                        {product.subtitle && (
-                                            <p className="text-sm text-gray-500 mb-3 line-clamp-1">
-                                                {product.subtitle}
-                                            </p>
-                                        )}
-
-                                        {/* Price Section */}
-                                        <div className="mb-4 bg-gradient-to-r from-blue-50 to-blue-100/50 p-3 rounded-lg">
-                                            <div className="text-xs text-blue-700 font-semibold mb-1 uppercase tracking-wide">
-                                                Mulai dari
-                                            </div>
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="text-xl font-bold text-blue-900">
-                                                    Rp{' '}
-                                                    {Number(
-                                                        product.min_price || product.base_price
-                                                    ).toLocaleString('id-ID')}
-                                                </span>
-                                            </div>
-                                            {product.variants && product.variants.length > 0 && (
-                                                <p className="text-xs text-blue-600 mt-1 font-medium">
-                                                    {product.variants.length} paket tersedia
+                                        {/* Content */}
+                                        <div className="p-7 flex flex-col flex-grow">
+                                            <Link href={`/product/${product.slug}`}>
+                                                <h3 className="text-xl font-bold mb-2 hover:text-[#005bbf] transition-colors"
+                                                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#191c1d' }}>
+                                                    {product.title}
+                                                </h3>
+                                            </Link>
+                                            {product.subtitle && (
+                                                <p className="text-sm leading-relaxed mb-5 line-clamp-2" style={{ color: '#414754' }}>
+                                                    {product.subtitle}
                                                 </p>
                                             )}
-                                        </div>
 
-                                        {/* Order Button */}
-                                        <button
-                                            onClick={() => handleOrderClick(product)}
-                                            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-4 rounded-xl font-semibold shadow-md hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                                        >
-                                            <span className="flex items-center justify-center gap-2">
-                                                Pesan Sekarang
-                                                <svg
-                                                    className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth="2"
-                                                        d="M9 5l7 7-7 7"
-                                                    ></path>
-                                                </svg>
-                                            </span>
-                                        </button>
+                                            {/* Price + CTA */}
+                                            <div className="mt-auto pt-5 flex items-center justify-between"
+                                                style={{ borderTop: '1px solid rgba(193,198,214,0.2)' }}>
+                                                <div>
+                                                    <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#414754' }}>Mulai dari</p>
+                                                    <p className="text-xl font-extrabold" style={{ color: '#005bbf', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                                        {minPrice > 0
+                                                            ? `Rp${Number(minPrice).toLocaleString('id-ID')}`
+                                                            : 'Hubungi Kami'}
+                                                    </p>
+                                                    {product.variants?.length > 0 && (
+                                                        <p className="text-xs mt-0.5" style={{ color: '#414754' }}>{product.variants.length} paket tersedia</p>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleOrderClick(product)}
+                                                    className="flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group/btn"
+                                                    style={{ color: '#005bbf' }}
+                                                    onMouseEnter={e => e.currentTarget.style.gap = '0.5rem'}
+                                                    onMouseLeave={e => e.currentTarget.style.gap = '0.375rem'}>
+                                                    Pesan Sekarang
+                                                    <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
-                        /* Empty State */
                         <div className="text-center py-20">
-                            <div className="max-w-md mx-auto">
-                                <div className="relative w-32 h-32 mx-auto mb-6">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full animate-pulse"></div>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <Search size={40} className="text-blue-600" />
-                                    </div>
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-3">
-                                    Tidak ada produk yang ditemukan
-                                </h3>
-                                <p className="text-gray-600 mb-6 leading-relaxed">
-                                    {searchTerm
-                                        ? 'Coba gunakan kata kunci yang berbeda atau hapus filter pencarian'
-                                        : 'Belum ada produk jasa yang tersedia saat ini'}
-                                </p>
-                                {searchTerm && (
-                                    <button
-                                        onClick={() => setSearchTerm('')}
-                                        className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-                                    >
-                                        Tampilkan Semua Produk
-                                    </button>
-                                )}
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+                                style={{ background: 'rgba(0,91,191,0.08)' }}>
+                                <Search className="w-9 h-9" style={{ color: '#005bbf' }} />
                             </div>
+                            <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#191c1d' }}>
+                                Tidak ada layanan yang ditemukan
+                            </h3>
+                            <p className="mb-6" style={{ color: '#414754' }}>
+                                {searchTerm ? 'Coba gunakan kata kunci yang berbeda' : 'Belum ada layanan yang tersedia saat ini'}
+                            </p>
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')}
+                                    className="px-8 py-3 rounded-xl font-semibold text-white transition-colors"
+                                    style={{ background: '#005bbf' }}>
+                                    Tampilkan Semua
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
-            </div>
+            </section>
 
-            {/* Product Modal */}
-            <ProductModal
-                product={selectedProduct}
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onAddToCart={handleAddToCart}
-            />
+            {/* ── KENAPA KAMI ── */}
+            <section className="px-6 lg:px-8 py-20 max-w-7xl mx-auto">
+                <div className="text-center mb-14">
+                    <h2 className="font-bold tracking-tight mb-4"
+                        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.5rem)', color: '#191c1d' }}>
+                        Kenapa Memilih Kami
+                    </h2>
+                    <p style={{ color: '#414754', fontSize: '1.05rem', maxWidth: '36rem', margin: '0 auto' }}>
+                        Kami menggabungkan kecepatan dengan presisi, memberikan fondasi kepercayaan untuk bisnis Anda.
+                    </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    {[
+                        {
+                            icon: Shield,
+                            title: 'Kepercayaan Penuh',
+                            desc: 'Data perusahaan dan proses hukum Anda ditangani dengan kerahasiaan dan integritas tertinggi.',
+                        },
+                        {
+                            icon: Zap,
+                            title: 'Efisiensi Waktu',
+                            desc: 'Proses yang efisien untuk menghasilkan dokumen dan persetujuan lebih cepat, menghemat waktu berharga Anda.',
+                        },
+                        {
+                            icon: Award,
+                            title: 'Keahlian Teruji',
+                            desc: 'Tim konsultan kami membawa pengalaman bertahun-tahun di bidang hukum korporat dan perpajakan Indonesia.',
+                        },
+                    ].map(({ icon: Icon, title, desc }) => (
+                        <div key={title} className="flex flex-col items-center text-center">
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+                                style={{ background: 'rgba(0,91,191,0.06)' }}>
+                                <Icon className="w-9 h-9" style={{ color: '#005bbf' }} />
+                            </div>
+                            <h4 className="text-xl font-bold mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#191c1d' }}>
+                                {title}
+                            </h4>
+                            <p className="text-base leading-relaxed" style={{ color: '#414754' }}>{desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
 
-            {/* Cart Drawer */}
-            <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-            />
-
+            <ProductModal product={selectedProduct} isOpen={isModalOpen} onClose={handleCloseModal} onAddToCart={handleAddToCart} />
+            <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
             <Footer />
         </div>
     );

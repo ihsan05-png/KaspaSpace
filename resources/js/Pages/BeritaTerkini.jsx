@@ -51,6 +51,7 @@ const BeritaTerkini = ({ news = [] }) => {
                                             <img
                                                 src={`/storage/${item.image}`}
                                                 alt={item.title}
+                                                loading="lazy" decoding="async"
                                                 className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                                             />
                                         ) : (

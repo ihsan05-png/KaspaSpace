@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router, usePage, Head } from '@inertiajs/react';
+import { router, Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     QrCode,
@@ -9,7 +9,9 @@ import {
     CheckCircle,
     AlertCircle,
     Image as ImageIcon,
-    Clock
+    Percent,
+    ToggleLeft,
+    ToggleRight,
 } from 'lucide-react';
 
 export default function AdminPaymentSettings({
@@ -20,6 +22,8 @@ export default function AdminPaymentSettings({
         account_name: 'PT Toko Kita',
         open_time: '08:00',
         close_time: '17:00',
+        ppn_enabled: true,
+        ppn_rate: 11,
     }
 }) {
     const [formData, setFormData] = useState({
@@ -28,13 +32,33 @@ export default function AdminPaymentSettings({
         account_name: settings.account_name || ''
     });
 
-    // Jam operasional
-    const [hours, setHours] = useState({
-        open_time:  settings.open_time  || '08:00',
-        close_time: settings.close_time || '17:00',
+    // PPN
+    const [ppn, setPpn] = useState({
+        ppn_enabled: settings.ppn_enabled ?? true,
+        ppn_rate:    settings.ppn_rate    ?? 11,
     });
-    const [hoursSaving, setHoursSaving] = useState(false);
-    const [hoursMsg, setHoursMsg]       = useState(null); // { ok, text }
+    const [ppnSaving, setPpnSaving] = useState(false);
+    const [ppnMsg,    setPpnMsg]    = useState(null);
+
+    const handleSavePpn = (e) => {
+        e.preventDefault();
+        setPpnSaving(true);
+        setPpnMsg(null);
+        router.post('/admin/paymentsettings/ppn', {
+            ppn_enabled: ppn.ppn_enabled,
+            ppn_rate:    Number(ppn.ppn_rate),
+        }, {
+            onSuccess: () => {
+                setPpnSaving(false);
+                setPpnMsg({ ok: true, text: 'Pengaturan PPN berhasil disimpan!' });
+                setTimeout(() => setPpnMsg(null), 3000);
+            },
+            onError: (errs) => {
+                setPpnSaving(false);
+                setPpnMsg({ ok: false, text: Object.values(errs)[0] || 'Gagal menyimpan' });
+            },
+        });
+    };
 
     const [qrisImage, setQrisImage] = useState(settings.qris_image);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -82,24 +106,6 @@ export default function AdminPaymentSettings({
                 }));
             }
         }
-    };
-
-    const handleSaveHours = (e) => {
-        e.preventDefault();
-        setHoursSaving(true);
-        setHoursMsg(null);
-        router.post('/admin/paymentsettings/operational-hours', hours, {
-            onSuccess: () => {
-                setHoursSaving(false);
-                setHoursMsg({ ok: true, text: 'Jam operasional berhasil disimpan!' });
-                setTimeout(() => setHoursMsg(null), 3000);
-            },
-            onError: (errs) => {
-                setHoursSaving(false);
-                const msg = Object.values(errs)[0] || 'Gagal menyimpan';
-                setHoursMsg({ ok: false, text: msg });
-            }
-        });
     };
 
     const handleSaveBankSettings = (e) => {
@@ -385,68 +391,78 @@ export default function AdminPaymentSettings({
                 </div>
             </div>
 
-            {/* Jam Operasional */}
+            {/* PPN / Pajak */}
             <div className="mt-6 bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-green-600" />
+                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <Percent className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Jam Operasional</h2>
-                        <p className="text-sm text-gray-600">Jam buka dan tutup untuk pemesanan di semua cabang</p>
+                        <h2 className="text-xl font-bold text-gray-900">Pajak PPN</h2>
+                        <p className="text-sm text-gray-600">Aktifkan atau nonaktifkan PPN pada setiap transaksi</p>
                     </div>
                 </div>
 
-                {hoursMsg && (
-                    <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${hoursMsg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        {hoursMsg.ok ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                        {hoursMsg.text}
+                {ppnMsg && (
+                    <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${ppnMsg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {ppnMsg.ok ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                        {ppnMsg.text}
                     </div>
                 )}
 
-                <form onSubmit={handleSaveHours} className="flex flex-wrap items-end gap-6">
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            Jam Buka <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="time"
-                            value={hours.open_time}
-                            onChange={e => setHours(prev => ({ ...prev, open_time: e.target.value }))}
-                            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-900"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            Jam Tutup <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="time"
-                            value={hours.close_time}
-                            onChange={e => setHours(prev => ({ ...prev, close_time: e.target.value }))}
-                            className="px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-900"
-                            required
-                        />
-                    </div>
-                    <div className="pb-0.5">
-                        <p className="text-xs text-gray-500 mb-2">
-                            Saat ini: <span className="font-semibold text-gray-700">{hours.open_time} – {hours.close_time}</span>
-                        </p>
+                <form onSubmit={handleSavePpn} className="space-y-5">
+                    {/* Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div>
+                            <p className="font-semibold text-gray-800">Status PPN</p>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                                {ppn.ppn_enabled ? 'PPN aktif — akan dikenakan pada setiap transaksi' : 'PPN nonaktif — tidak ada pajak yang dikenakan'}
+                            </p>
+                        </div>
                         <button
-                            type="submit"
-                            disabled={hoursSaving}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition"
+                            type="button"
+                            onClick={() => setPpn(prev => ({ ...prev, ppn_enabled: !prev.ppn_enabled }))}
+                            className="flex items-center gap-2 transition-colors"
                         >
-                            <Save className="w-4 h-4" />
-                            {hoursSaving ? 'Menyimpan...' : 'Simpan Jam Operasional'}
+                            {ppn.ppn_enabled
+                                ? <ToggleRight className="w-12 h-12 text-indigo-600" />
+                                : <ToggleLeft  className="w-12 h-12 text-gray-400" />}
                         </button>
                     </div>
-                </form>
 
-                <p className="mt-4 text-xs text-gray-400">
-                    Perubahan akan langsung berlaku di halaman booking untuk semua pengguna.
-                </p>
+                    {/* Rate */}
+                    {ppn.ppn_enabled && (
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Tarif PPN (%) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={ppn.ppn_rate}
+                                    onChange={e => setPpn(prev => ({ ...prev, ppn_rate: e.target.value }))}
+                                    className="w-32 px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-gray-900 font-bold text-lg"
+                                    required
+                                />
+                                <span className="text-gray-500 font-medium">%</span>
+                                <span className="text-sm text-gray-400">
+                                    (Indonesia: 11% — berlaku sejak April 2022)
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={ppnSaving}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
+                    >
+                        <Save className="w-4 h-4" />
+                        {ppnSaving ? 'Menyimpan...' : 'Simpan Pengaturan PPN'}
+                    </button>
+                </form>
             </div>
 
             {/* Preview Section */}

@@ -314,20 +314,12 @@ const ProductCreate = ({ categories, rooms = [] }) => {
       formData.append(`room_ids[${index}]`, roomId);
     });
 
-    console.log('Submitting form data:', data);
-    
     // Try different route names based on your setup
     const routeName = route().has('admin.products.store') ? 'admin.products.store' : 'products.store';
-    
+
     post(route(routeName), {
       data: formData,
       forceFormData: true,
-      onSuccess: () => {
-        console.log('Product created successfully');
-      },
-      onError: (errors) => {
-        console.error('Validation errors:', errors);
-      }
     });
   };
 

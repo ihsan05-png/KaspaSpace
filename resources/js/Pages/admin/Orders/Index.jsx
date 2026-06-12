@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { router, usePage, Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import kaspaLogo from '@/../images/logo.png';
 import axios from 'axios';
 import {
     Search,
@@ -25,11 +26,6 @@ import {
 } from 'lucide-react';
 
 export default function AdminOrdersIndex({ orders = [] }) {
-    // Debug: Log orders data
-    console.log('Orders received:', orders);
-    console.log('Orders length:', orders?.length);
-    console.log('Orders type:', typeof orders);
-    
     const { auth } = usePage().props;
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -42,35 +38,39 @@ export default function AdminOrdersIndex({ orders = [] }) {
     const [isSendingEmail, setIsSendingEmail] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
 
-    // Auto-sync Midtrans orders every 10 seconds
+    // Auto-sync Midtrans orders every 30 seconds
     useEffect(() => {
         const syncMidtransOrders = async () => {
-            const midtransOrders = orders.filter(o =>
-                o.payment_method === 'midtrans' &&
-                o.payment_status === 'unpaid' &&
-                o.status !== 'cancelled'
-            );
+            const midtransOrders = orders
+                .filter(o =>
+                    o.payment_method === 'midtrans' &&
+                    o.payment_status === 'unpaid' &&
+                    o.status !== 'cancelled'
+                )
+                .slice(0, 10); // batasi max 10 request sekaligus
 
             if (midtransOrders.length === 0) return;
 
             try {
-                await Promise.all(
+                const results = await Promise.allSettled(
                     midtransOrders.map(order =>
-                        axios.get(`/midtrans/check-status/${order.id}`).catch(() => null)
+                        axios.get(`/midtrans/check-status/${order.id}`)
                     )
                 );
-                router.reload({ only: ['orders'] });
+                const anyChanged = results.some(r => r.status === 'fulfilled');
+                if (anyChanged) {
+                    router.reload({ only: ['orders'], preserveScroll: true });
+                }
             } catch (error) {
                 console.error('Sync error:', error);
             }
         };
 
-        const interval = setInterval(syncMidtransOrders, 10000);
+        const interval = setInterval(syncMidtransOrders, 30000);
         return () => clearInterval(interval);
-    }, [orders]);
+    }, []); // jalankan sekali saja saat mount
 
     const handleStatusChange = (orderId, newStatus) => {
-        console.log('handleStatusChange called:', orderId, newStatus);
         setConfirmData({ orderId, newStatus });
         setShowConfirmModal(true);
     };
@@ -290,7 +290,7 @@ export default function AdminOrdersIndex({ orders = [] }) {
         if (!selectedOrder) return;
 
         // Download PDF langsung dari backend
-        window.location.href = `/admin/orders/${selectedOrder.id}/download-invoice`;
+        window.open(`/admin/orders/${selectedOrder.id}/download-invoice`, '_blank', 'noopener,noreferrer');
     };
 
     const handleSendInvoiceEmail = async () => {
@@ -310,71 +310,40 @@ export default function AdminOrdersIndex({ orders = [] }) {
     };
 
     const getStatusBadge = (paymentStatus, orderStatus) => {
-        // Dibatalkan: either field signals cancellation
         if (orderStatus === 'cancelled' || paymentStatus === 'cancelled') {
             return (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                    <XCircle className="w-3 h-3" />
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#fee2e2', color: '#b91c1c' }}>
                     Dibatalkan
                 </span>
             );
         }
-
-        const statuses = {
-            pending: {
-                color: 'bg-yellow-100 text-yellow-800',
-                text: 'Menunggu',
-                icon: Clock
-            },
-            unpaid: {
-                color: 'bg-yellow-100 text-yellow-800',
-                text: 'Menunggu',
-                icon: Clock
-            },
-            paid: {
-                color: 'bg-green-100 text-green-800',
-                text: 'Terbayar',
-                icon: CheckCircle
-            },
-            verified: {
-                color: 'bg-green-100 text-green-800',
-                text: 'Terbayar',
-                icon: CheckCircle
-            },
-            rejected: {
-                color: 'bg-red-100 text-red-800',
-                text: 'Dibatalkan',
-                icon: XCircle
-            },
-            refunded: {
-                color: 'bg-purple-100 text-purple-800',
-                text: 'Refund',
-                icon: RefreshCw
-            }
+        const map = {
+            pending:  { bg: '#fef9c3', color: '#854d0e', label: 'Menunggu' },
+            unpaid:   { bg: '#fef9c3', color: '#854d0e', label: 'Menunggu' },
+            paid:     { bg: '#dcfce7', color: '#166534', label: 'Terbayar' },
+            verified: { bg: '#dcfce7', color: '#166534', label: 'Terbayar' },
+            rejected: { bg: '#fee2e2', color: '#b91c1c', label: 'Dibatalkan' },
+            refunded: { bg: '#f3e8ff', color: '#7c3aed', label: 'Refund' },
         };
-
-        const status_info = statuses[paymentStatus] || statuses.pending;
-        const Icon = status_info.icon;
-        
+        const cfg = map[paymentStatus] || map.pending;
         return (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${status_info.color}`}>
-                <Icon className="w-3 h-3" />
-                {status_info.text}
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>
+                {cfg.label}
             </span>
         );
     };
 
     const getPaymentMethodLabel = (method) => {
         const methods = {
-            qris: { text: 'QRIS', color: 'bg-purple-100 text-purple-700' },
-            bank_transfer: { text: 'Transfer Bank', color: 'bg-blue-100 text-blue-700' },
-            cash: { text: 'Tunai', color: 'bg-orange-100 text-orange-700' },
-            midtrans: { text: 'Midtrans', color: 'bg-indigo-100 text-indigo-700' }
+            qris:          { text: 'QRIS',          bg: '#f3e8ff', color: '#7c3aed' },
+            bank_transfer: { text: 'Transfer Bank', bg: '#eff6ff', color: '#005bbf' },
+            cash:          { text: 'Tunai',         bg: '#fff7ed', color: '#c2410c' },
+            midtrans:      { text: 'Midtrans',      bg: '#eef2ff', color: '#4338ca' },
         };
-        const methodInfo = methods[method] || { text: method, color: 'bg-gray-100 text-gray-700' };
+        const m = methods[method] || { text: method, bg: '#f3f4f6', color: '#6b7280' };
         return (
-            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${methodInfo.color}`}>
-                {methodInfo.text}
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 8, background: m.bg, color: m.color }}>
+                {m.text}
             </span>
         );
     };
@@ -403,90 +372,80 @@ export default function AdminOrdersIndex({ orders = [] }) {
             .reduce((sum, o) => sum + Number(o.total), 0),
     };
 
+    const BLUE = '#005bbf';
+
+    const statCards = [
+        { label: 'Menunggu',    value: stats.menunggu,   icon: Clock,        color: '#fefce8', iconColor: '#d97706' },
+        { label: 'Terbayar',    value: stats.terbayar,   icon: CheckCircle,  color: '#f0fdf4', iconColor: '#16a34a' },
+        { label: 'Dibatalkan',  value: stats.dibatalkan, icon: XCircle,      color: '#fef2f2', iconColor: '#dc2626' },
+        { label: 'Refund',      value: stats.refunded,   icon: RefreshCw,    color: '#fdf4ff', iconColor: '#9333ea' },
+        { label: 'Pendapatan',  value: `Rp${stats.pendapatan.toLocaleString('id-ID')}`, icon: DollarSign, color: '#eff6ff', iconColor: BLUE },
+    ];
+
     return (
         <AdminLayout>
             <Head title="Kelola Pesanan" />
-            
+
             {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Kelola Pesanan</h1>
-                <p className="text-gray-600">Kelola dan pantau semua pesanan pelanggan</p>
+            <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}>
+                    Kelola Pesanan
+                </h1>
+                <p style={{ fontSize: 14, color: '#6b7280', marginTop: 6 }}>
+                    Kelola dan pantau semua pesanan pelanggan
+                </p>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-yellow-600 text-sm font-medium">Menunggu</p>
-                            <p className="text-2xl font-bold text-yellow-900 mt-1">{stats.menunggu}</p>
+            {/* Stat Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
+                {statCards.map((s) => (
+                    <div key={s.label} style={{
+                        background: '#fff', borderRadius: 14, padding: '18px 20px',
+                        boxShadow: '0 1px 6px rgba(26,46,90,0.07)',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                {s.label}
+                            </p>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <s.icon style={{ width: 18, height: 18, color: s.iconColor }} />
+                            </div>
                         </div>
-                        <Clock className="w-10 h-10 text-yellow-400" />
+                        <p style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                            {s.value}
+                        </p>
                     </div>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-green-600 text-sm font-medium">Terbayar</p>
-                            <p className="text-2xl font-bold text-green-900 mt-1">{stats.terbayar}</p>
-                        </div>
-                        <CheckCircle className="w-10 h-10 text-green-400" />
-                    </div>
-                </div>
-
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-red-600 text-sm font-medium">Dibatalkan</p>
-                            <p className="text-2xl font-bold text-red-900 mt-1">{stats.dibatalkan}</p>
-                        </div>
-                        <XCircle className="w-10 h-10 text-red-400" />
-                    </div>
-                </div>
-
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-purple-600 text-sm font-medium">Refund</p>
-                            <p className="text-2xl font-bold text-purple-900 mt-1">{stats.refunded}</p>
-                        </div>
-                        <RefreshCw className="w-10 h-10 text-purple-400" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Pendapatan Card */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-5 mb-6 flex items-center justify-between">
-                <div>
-                    <p className="text-blue-100 text-sm font-medium mb-1">Total Pendapatan</p>
-                    <p className="text-3xl font-bold text-white">
-                        Rp{stats.pendapatan.toLocaleString('id-ID')}
-                    </p>
-                    <p className="text-blue-200 text-xs mt-1">Dari {stats.terbayar} pesanan terbayar</p>
-                </div>
-                <DollarSign className="w-14 h-14 text-blue-300 opacity-80" />
+                ))}
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', marginBottom: 20, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#9ca3af' }} />
                         <input
                             type="text"
                             placeholder="Cari berdasarkan nomor pesanan atau nama..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            style={{
+                                width: '100%', paddingLeft: 38, paddingRight: 14, paddingTop: 9, paddingBottom: 9,
+                                border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151',
+                                outline: 'none', boxSizing: 'border-box',
+                            }}
                         />
                     </div>
-                    <div className="relative">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <div style={{ position: 'relative' }}>
+                        <Filter style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#9ca3af' }} />
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                            style={{
+                                paddingLeft: 34, paddingRight: 32, paddingTop: 9, paddingBottom: 9,
+                                border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151',
+                                background: '#fff', appearance: 'none', outline: 'none', cursor: 'pointer',
+                            }}
                         >
                             <option value="all">Semua Status</option>
                             <option value="menunggu">Menunggu</option>
@@ -494,79 +453,78 @@ export default function AdminOrdersIndex({ orders = [] }) {
                             <option value="dibatalkan">Dibatalkan</option>
                             <option value="refunded">Refund</option>
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                        <ChevronDown style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#9ca3af', pointerEvents: 'none' }} />
                     </div>
                 </div>
             </div>
 
             {/* Orders Table */}
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Pesanan
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Pelanggan
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Metode
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Total
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                    Aksi
-                                </th>
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ background: '#f8faff' }}>
+                                {['Pesanan', 'Pelanggan', 'Metode', 'Total', 'Status', 'Aksi'].map((h, i) => (
+                                    <th key={h} style={{
+                                        padding: '11px 18px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                                        textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    }}>{h}</th>
+                                ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody>
                             {filteredOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="6" style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
                                         Tidak ada data pesanan
                                     </td>
                                 </tr>
                             ) : (
-                                filteredOrders.map((order) => (
-                                    <tr key={order.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <p className="font-semibold text-gray-900">{order.order_number}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {order.paid_at ? formatDate(order.paid_at) : formatDate(order.created_at)}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <p className="font-medium text-gray-900">{order.customer_name}</p>
-                                                <p className="text-sm text-gray-500">{order.customer_email}</p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {getPaymentMethodLabel(order.payment_method)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="font-semibold text-gray-900">
-                                                Rp{Number(order.total).toLocaleString('id-ID')}
+                                filteredOrders.map((order, idx) => (
+                                    <tr key={order.id} style={{ borderTop: '1px solid #f0f2f8', background: idx % 2 === 0 ? '#fff' : '#fafbff' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafbff'}
+                                    >
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <p style={{ fontSize: 13, fontWeight: 700, color: BLUE, margin: 0 }}>{order.order_number}</p>
+                                            <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>
+                                                {order.paid_at ? formatDate(order.paid_at) : formatDate(order.created_at)}
                                             </p>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{
+                                                    width: 30, height: 30, borderRadius: '50%', background: '#eff6ff',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                }}>
+                                                    <span style={{ fontSize: 12, fontWeight: 700, color: BLUE }}>
+                                                        {(order.customer_name || 'U')[0].toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{order.customer_name}</p>
+                                                    <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{order.customer_email}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            {getPaymentMethodLabel(order.payment_method)}
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                                                Rp{Number(order.total).toLocaleString('id-ID')}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
                                             {getStatusBadge(order.payment_status, order.status)}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                 {['cash', 'qris', 'bank_transfer'].includes(order.payment_method) && order.payment_status !== 'paid' && !isCancelled(order) && order.payment_status !== 'refunded' && (
                                                     <select
                                                         value={order.payment_status}
                                                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                                                        className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        style={{ padding: '5px 8px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 8, color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
                                                     >
                                                         <option value="unpaid">Menunggu</option>
                                                         <option value="paid">Lunas</option>
@@ -576,17 +534,25 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                                 {(order.payment_status === 'paid' || order.payment_status === 'verified') && !isCancelled(order) && (
                                                     <button
                                                         onClick={() => handleStatusChange(order.id, 'refunded')}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+                                                        style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                            padding: '5px 10px', background: '#f3e8ff', color: '#7c3aed',
+                                                            border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                                        }}
                                                     >
-                                                        <RefreshCw className="w-3.5 h-3.5" />
+                                                        <RefreshCw style={{ width: 13, height: 13 }} />
                                                         Refund
                                                     </button>
                                                 )}
                                                 <button
                                                     onClick={() => openModal(order)}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                        padding: '5px 12px', background: BLUE, color: '#fff',
+                                                        border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                                    }}
                                                 >
-                                                    <Eye className="w-4 h-4" />
+                                                    <Eye style={{ width: 13, height: 13 }} />
                                                     Detail
                                                 </button>
                                             </div>
@@ -881,6 +847,54 @@ export default function AdminOrdersIndex({ orders = [] }) {
                                 </div>
                             </div>
 
+                            {/* Dokumen Usaha */}
+                            {(selectedOrder.doc_ktp || selectedOrder.doc_npwp || selectedOrder.doc_business_license || selectedOrder.doc_company_name) && (
+                                <div className="mb-6">
+                                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-teal-600" />
+                                        Data Usaha
+                                    </h3>
+                                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 space-y-3">
+                                        {selectedOrder.doc_company_name && (
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-gray-600">Nama Perusahaan:</span>
+                                                <span className="font-semibold">{selectedOrder.doc_company_name}</span>
+                                            </div>
+                                        )}
+                                        {selectedOrder.doc_pic_name && (
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-gray-600">Nama PIC:</span>
+                                                <span className="font-semibold">{selectedOrder.doc_pic_name}</span>
+                                            </div>
+                                        )}
+                                        {selectedOrder.doc_pic_phone && (
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <span className="text-gray-600">No. Telp PIC:</span>
+                                                <span className="font-semibold">{selectedOrder.doc_pic_phone}</span>
+                                            </div>
+                                        )}
+                                        {[
+                                            { key: 'doc_ktp',              label: 'KTP' },
+                                            { key: 'doc_npwp',             label: 'NPWP' },
+                                            { key: 'doc_business_license', label: 'SIUP / Izin Usaha' },
+                                        ].map(({ key, label }) => selectedOrder[key] ? (
+                                            <div key={key} className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-600">{label}:</span>
+                                                <a
+                                                    href={selectedOrder[key]}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1.5 text-teal-700 font-semibold hover:text-teal-900 underline underline-offset-2"
+                                                >
+                                                    <Download className="w-3.5 h-3.5" />
+                                                    Lihat / Unduh
+                                                </a>
+                                            </div>
+                                        ) : null)}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Payment Proof */}
                             {selectedOrder.payment_proof && (
                                 <div className="mb-6">
@@ -1064,101 +1078,147 @@ export default function AdminOrdersIndex({ orders = [] }) {
                         </div>
 
                         {/* Invoice Content */}
-                        <div className="p-8">
-                            {/* Invoice Header */}
-                            <div className="text-center mb-8 pb-6 border-b-2 border-blue-500">
-                                <img
-                                    src="/images/kaspa-space-logo.png"
-                                    alt="Kaspa Space"
-                                    className="h-24 mx-auto"
-                                />
+                        <div style={{ background: '#fff', fontFamily: 'Inter, sans-serif', position: 'relative', overflow: 'hidden' }}>
+                            {/* Top-left corner */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+                                <svg width="130" height="130" viewBox="0 0 130 130" fill="none">
+                                    <defs><clipPath id="adminCtl"><polygon points="0,0 130,0 0,130" /></clipPath></defs>
+                                    <polygon points="0,0 130,0 0,130" fill="#1a2e5a" />
+                                    <g clipPath="url(#adminCtl)" opacity="0.18">
+                                        {[-40,-20,0,20,40,60,80,100,120,140].map((o,i) => (
+                                            <line key={i} x1={o} y1={0} x2={o+130} y2={130} stroke="#fff" strokeWidth="9" />
+                                        ))}
+                                    </g>
+                                </svg>
+                            </div>
+                            {/* Bottom-right corner */}
+                            <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none' }}>
+                                <svg width="130" height="130" viewBox="0 0 130 130" fill="none">
+                                    <defs><clipPath id="adminCbr"><polygon points="130,0 130,130 0,130" /></clipPath></defs>
+                                    <polygon points="130,0 130,130 0,130" fill="#1a2e5a" />
+                                    <g clipPath="url(#adminCbr)" opacity="0.18">
+                                        {[-40,-20,0,20,40,60,80,100,120,140].map((o,i) => (
+                                            <line key={i} x1={o} y1={0} x2={o+130} y2={130} stroke="#fff" strokeWidth="9" />
+                                        ))}
+                                    </g>
+                                </svg>
                             </div>
 
-                            {/* Invoice Info */}
-                            <div className="grid md:grid-cols-2 gap-8 mb-8">
-                                <div>
-                                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">Informasi Pesanan</h3>
-                                    <div className="space-y-2 text-sm">
-                                        <p><span className="text-gray-500">No. Invoice:</span> <span className="font-semibold">{selectedOrder.order_number}</span></p>
-                                        <p><span className="text-gray-500">Tanggal:</span> <span className="font-semibold">{formatDate(selectedOrder.created_at)}</span></p>
-                                        <p><span className="text-gray-500">Metode Pembayaran:</span> <span className="font-semibold">
-                                            {selectedOrder.payment_method === 'cash' ? 'Tunai' :
-                                             selectedOrder.payment_method === 'qris' ? 'QRIS' :
-                                             selectedOrder.payment_method === 'bank_transfer' ? 'Transfer Bank' :
-                                             selectedOrder.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder.payment_method}
-                                        </span></p>
-                                        <p><span className="text-gray-500">Status:</span> {getStatusBadge(selectedOrder.payment_status, selectedOrder.status)}</p>
-                                    </div>
+                            {/* Header */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', padding: '32px 44px 28px 155px', gap: 0 }}>
+                                <div style={{ flex: 1 }}>
+                                    <img src={kaspaLogo} alt="Kaspa Space"
+                                        style={{ height: 44, objectFit: 'contain', display: 'block', marginBottom: 8 }} />
+                                    <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Premium Coworking Hub</p>
+                                    <p style={{ fontSize: 13, color: '#6b7280', margin: '2px 0 0' }}>Jakarta Selatan</p>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">Informasi Pelanggan</h3>
-                                    <div className="space-y-2 text-sm">
-                                        <p><span className="text-gray-500">Nama:</span> <span className="font-semibold">{selectedOrder.customer_name}</span></p>
-                                        <p><span className="text-gray-500">Email:</span> <span className="font-semibold">{selectedOrder.customer_email}</span></p>
+                                <div style={{ width: 1, background: '#d1d5db', alignSelf: 'stretch', margin: '0 28px' }} />
+                                <div style={{ textAlign: 'right', minWidth: 190 }}>
+                                    <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#9ca3af', textTransform: 'uppercase', margin: '0 0 8px' }}>Invoice Number</p>
+                                    <p style={{ fontSize: 15, fontWeight: 800, color: '#1a2e5a', fontFamily: 'monospace', margin: '0 0 8px', wordBreak: 'break-all' }}>
+                                        {selectedOrder.order_number}
+                                    </p>
+                                    <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                                        Tanggal: {new Date(selectedOrder.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Info box */}
+                            <div style={{ padding: '0 44px 28px' }}>
+                                <div style={{ border: '1.5px solid #d1d9e6', borderRadius: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
+                                    <div style={{ padding: '18px 22px' }}>
+                                        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4a7fa5', marginBottom: 12 }}>Informasi Pelanggan</p>
+                                        <p style={{ fontWeight: 700, fontSize: 14, color: '#1a2e5a', margin: '0 0 6px' }}>{selectedOrder.customer_name}</p>
+                                        <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 4px' }}>✉ {selectedOrder.customer_email}</p>
                                         {selectedOrder.customer_phone && (
-                                            <p><span className="text-gray-500">Telepon:</span> <span className="font-semibold">{selectedOrder.customer_phone}</span></p>
+                                            <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>📞 {selectedOrder.customer_phone}</p>
                                         )}
                                     </div>
+                                    <div style={{ padding: '18px 22px', borderLeft: '1.5px solid #d1d9e6' }}>
+                                        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4a7fa5', marginBottom: 12 }}>Informasi Order</p>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                            <span style={{ fontSize: 13, color: '#6b7280' }}>Metode Pembayaran</span>
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#1a2e5a' }}>
+                                                {selectedOrder.payment_method === 'cash' ? 'Tunai' :
+                                                 selectedOrder.payment_method === 'qris' ? 'QRIS' :
+                                                 selectedOrder.payment_method === 'bank_transfer' ? 'Transfer Bank' :
+                                                 selectedOrder.payment_method === 'midtrans' ? 'Midtrans' : selectedOrder.payment_method}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: 13, color: '#6b7280' }}>Status</span>
+                                            <span style={{
+                                                fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
+                                                background: ['paid','verified'].includes(selectedOrder.payment_status) ? '#1a2e5a' : '#fef9c3',
+                                                color: ['paid','verified'].includes(selectedOrder.payment_status) ? '#fff' : '#854d0e',
+                                            }}>
+                                                {['paid','verified'].includes(selectedOrder.payment_status) ? 'Terbayar' : 'Menunggu'}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Invoice Items Table */}
-                            <div className="mb-8">
-                                <table className="w-full">
+                            {/* Items table */}
+                            <div style={{ padding: '0 44px 32px', position: 'relative' }}>
+                                {/* Rubber stamp */}
+                                {['paid','verified'].includes(selectedOrder.payment_status) && (
+                                    <svg width="260" height="90" viewBox="0 0 260 90" fill="none"
+                                        style={{ position: 'absolute', top: '38%', left: '50%', transform: 'translateX(-50%) rotate(-22deg)', pointerEvents: 'none', zIndex: 5 }}>
+                                        <rect x="4" y="4" width="252" height="82" rx="8" stroke="#1a2e5a" strokeWidth="5" fill="none" opacity="0.38" />
+                                        <rect x="10" y="10" width="240" height="70" rx="5" stroke="#1a2e5a" strokeWidth="2" fill="none" opacity="0.22" />
+                                        <text x="130" y="58" textAnchor="middle" fill="none" stroke="#1a2e5a" strokeWidth="2.5"
+                                            fontSize="38" fontWeight="900" fontFamily="'Arial Black', Arial, sans-serif" letterSpacing="6" opacity="0.38">
+                                            TERBAYAR
+                                        </text>
+                                    </svg>
+                                )}
+                                <table style={{ width: '100%', borderCollapse: 'collapse', position: 'relative', zIndex: 2 }}>
                                     <thead>
-                                        <tr className="bg-blue-600 text-white">
-                                            <th className="px-4 py-3 text-left rounded-tl-lg">Produk</th>
-                                            <th className="px-4 py-3 text-center">Qty</th>
-                                            <th className="px-4 py-3 text-right">Harga</th>
-                                            <th className="px-4 py-3 text-right rounded-tr-lg">Subtotal</th>
+                                        <tr style={{ background: '#1a2e5a' }}>
+                                            {['PRODUK', 'QTY', 'HARGA', 'SUBTOTAL'].map((h, i) => (
+                                                <th key={h} style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, letterSpacing: '0.07em', color: '#fff', textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {selectedOrder.items?.map((item, index) => (
-                                            <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                                                <td className="px-4 py-4">
-                                                    <p className="font-medium text-gray-900">{item.product_name}</p>
+                                            <tr key={index} style={{ background: index % 2 === 0 ? '#f5f7fb' : '#fff' }}>
+                                                <td style={{ padding: '13px 16px', borderBottom: '1px solid #edf0f5' }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{item.product_name}</span>
                                                     {item.variant_name && (
-                                                        <p className="text-sm text-blue-600">{item.variant_name}</p>
+                                                        <span style={{ display: 'block', fontSize: 12, color: '#3b82f6', marginTop: 2 }}>{item.variant_name}</span>
                                                     )}
                                                     {item.booking_start_at && item.booking_end_at && (
-                                                        <p className="text-sm text-emerald-600 mt-1">
-                                                            {['private_office', 'virtual_office'].includes(item.product?.product_type) ? (
-                                                                <>
-                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    {new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })},{' '}
-                                                                    {new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                                                </>
-                                                            )}
-                                                        </p>
+                                                        <span style={{ display: 'block', fontSize: 12, color: '#059669', marginTop: 2 }}>
+                                                            {['private_office', 'virtual_office'].includes(item.product?.product_type)
+                                                                ? `${new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - ${new Date(item.booking_end_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                                                : `${new Date(item.booking_start_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}, ${new Date(item.booking_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${new Date(item.booking_end_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+                                                            }
+                                                        </span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-4 text-center">{item.quantity}</td>
-                                                <td className="px-4 py-4 text-right">Rp{Number(item.price).toLocaleString('id-ID')}</td>
-                                                <td className="px-4 py-4 text-right font-semibold">Rp{Number(item.subtotal).toLocaleString('id-ID')}</td>
+                                                <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 14, color: '#374151', borderBottom: '1px solid #edf0f5' }}>{item.quantity}</td>
+                                                <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 14, color: '#374151', borderBottom: '1px solid #edf0f5' }}>Rp{Number(item.price).toLocaleString('id-ID')}</td>
+                                                <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#1a2e5a', borderBottom: '1px solid #edf0f5' }}>Rp{Number(item.subtotal).toLocaleString('id-ID')}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                            </div>
-
-                            {/* Invoice Total */}
-                            <div className="flex justify-end mb-8">
-                                <div className="w-64">
-                                    <div className="flex justify-between py-3 border-t-2 border-blue-500">
-                                        <span className="text-lg font-bold text-gray-900">TOTAL</span>
-                                        <span className="text-xl font-bold text-blue-600">Rp{Number(selectedOrder.total).toLocaleString('id-ID')}</span>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                                    <div style={{ background: '#1a2e5a', borderRadius: 12, padding: '13px 32px', display: 'flex', alignItems: 'center', gap: 28 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total</span>
+                                        <span style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>Rp{Number(selectedOrder.total).toLocaleString('id-ID')}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Invoice Footer */}
-                            <div className="text-center pt-6 border-t border-gray-200">
-                                <p className="text-gray-600">Terima kasih telah berbelanja di Kaspa Space</p>
-                                <p className="text-gray-400 text-sm mt-1">Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
+                            {/* Footer */}
+                            <div style={{ padding: '16px 44px 28px', borderTop: '1px solid #edf0f5', textAlign: 'center' }}>
+                                <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontStyle: 'italic' }}>
+                                    Terima kasih telah berbelanja di Kaspa Space. Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan.
+                                </p>
                             </div>
                         </div>
                     </div>

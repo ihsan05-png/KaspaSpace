@@ -35,7 +35,12 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
-        if ($user && $user->role === 'admin') {
+        $isStaff = $user && (
+            $user->hasAnyRole(['admin', 'resepsionis']) ||
+            in_array($user->role, ['admin', 'resepsionis'])
+        );
+
+        if ($isStaff) {
             return redirect('/admin');
         }
 

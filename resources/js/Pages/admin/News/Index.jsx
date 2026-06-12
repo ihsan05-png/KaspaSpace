@@ -98,6 +98,7 @@ const NewsIndex = ({ news }) => {
                                                         <img
                                                             src={`/storage/${newsItem.image}`}
                                                             alt={newsItem.title}
+                                                            loading="lazy" decoding="async"
                                                             className="h-10 w-10 rounded object-cover mr-3"
                                                         />
                                                     )}

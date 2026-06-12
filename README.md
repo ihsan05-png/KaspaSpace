@@ -1,121 +1,116 @@
-Berikut draft `README.md` untuk repositori **Kaspa‑Space** :
+# Kaspa-Space
+Website / aplikasi berbasis Laravel + React untuk manajemen coworking space.
 
 ---
 
-````markdown
-# Kaspa-Space  
-Website / aplikasi berbasis Laravel
+## 📋 Deskripsi
 
-## 📋 Deskripsi  
 **Kaspa-Space** adalah platform pemesanan dan manajemen layanan ruang kerja bersama (coworking space) berbasis web. Website ini memungkinkan pengguna untuk:
 
-- 🏢 **Menjelajahi dan Memesan Ruang Kerja** - Browse berbagai kategori ruang kerja seperti coworking space, meeting room, dan fasilitas lainnya
-- 💳 **Sistem Pembayaran Terintegrasi** - Pembayaran online melalui Midtrans dengan berbagai metode pembayaran
-- 📅 **Manajemen Jadwal & Booking** - Sistem penjadwalan untuk mengatur ketersediaan ruang
-- 🎯 **Sistem Diskon & Promosi** - Fitur diskon untuk pelanggan dengan berbagai jenis potongan harga
-- 📰 **Berita & Informasi** - Modul berita untuk update terbaru dan pengumuman
-- 📊 **Dashboard Admin** - Panel administrasi lengkap untuk mengelola produk, pesanan, kategori, dan laporan
-- 🔗 **Integrasi Google Sheets** - Sinkronisasi data dengan Google Sheets untuk kemudahan pencatatan
-
-Website ini dibangun menggunakan **Laravel 11** (PHP) sebagai backend dengan **React** + **Inertia.js** untuk frontend, styling menggunakan **Tailwind CSS**, dan build tool **Vite**. Repositori ini berisi kode backend dan frontend, konfigurasi, modul database, serta skrip produksi. Tujuannya agar pengembang selanjutnya bisa cepat memahami dan melanjutkan pengembangan.
+- 🏢 **Menjelajahi dan Memesan Ruang Kerja** — Browse berbagai kategori ruang kerja seperti coworking space, meeting room, private office, dan fasilitas lainnya
+- 💳 **Sistem Pembayaran Terintegrasi** — Pembayaran online melalui Midtrans, QRIS, transfer bank, dan tunai
+- 📅 **Manajemen Jadwal & Booking** — Sistem penjadwalan real-time dengan antrian email, toleransi waktu, dan timer pembayaran
+- 🧾 **Invoice Otomatis** — Invoice dengan breakdown PPN 11%, status dinamis (Terbayar / Menunggu / Dibatalkan / Refund), dan stamp visual
+- 🎯 **Sistem Diskon & Promosi** — Kode diskon dengan filter produk/user spesifik
+- 📰 **Berita & Blog** — Modul news dan blog lengkap dengan halaman publik dan admin CRUD
+- 📊 **Dashboard Admin** — Panel administrasi lengkap: produk, pesanan, kategori, statistik, monitoring ruangan, dan ulasan
+- 👤 **Manajemen User** — Profil user, riwayat pesanan, dan kontrol akses berbasis role
 
 ### 🛠️ Tech Stack
-- **Backend**: Laravel 11 (PHP 8.x)
-- **Frontend**: React 18 + Inertia.js
-- **Styling**: Tailwind CSS v3
-- **Build Tool**: Vite
-- **Database**: MySQL
-- **Payment Gateway**: Midtrans
-- **Icons**: Heroicons, Lucide React
 
-## 🚀 Persiapan Awal dan Instalasi  
-Ikuti langkah-langkah berikut untuk menjalankan project secara lokal atau dalam lingkungan development.
+| Layer | Teknologi |
+|---|---|
+| Backend | Laravel 11 (PHP 8.x) |
+| Frontend | React 18 + Inertia.js |
+| Styling | Tailwind CSS v3 + inline styles |
+| Build Tool | Vite |
+| Database | MySQL |
+| Payment Gateway | Midtrans |
+| Icons | Heroicons, Lucide React |
+| Font | Plus Jakarta Sans, Inter |
 
-### 1. Clone repositori  
+---
+
+## 🚀 Instalasi
+
+### 1. Clone repositori
 ```bash
 git clone https://github.com/ihsan05-png/KaspaSpace.git
 cd KaspaSpace
 ```
 
-### 2. Install dependensi PHP dengan Composer
-
-Pastikan Anda memiliki PHP versi yang mendukung (misalnya PHP 8.x) dan Composer telah terpasang.
-
+### 2. Install dependensi PHP
 ```bash
 composer install
 ```
 
-### 3. Salin file environment dan konfigurasi
-
-Salin file `.env.example` ke `.env` dan atur konfigurasi sesuai lingkungan Anda (database, mail, dsb).
-
+### 3. Salin dan konfigurasi environment
 ```bash
 cp .env.example .env
 ```
 
-Kemudian buka `.env`, dan atur variabel seperti:
-
-* `APP_NAME`, `APP_URL`, `APP_ENV`, `APP_KEY`
-* `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
-* Konfigurasi lain seperti mail, storage, caching, api key (mis. Midtrans) jika digunakan.
+Atur variabel di `.env`:
+- `APP_NAME`, `APP_URL`, `APP_ENV`, `APP_KEY`
+- `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
+- `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION`
+- Konfigurasi mail untuk notifikasi email booking
 
 ### 4. Generate application key
-
 ```bash
 php artisan key:generate
 ```
 
-### 5. Migrasi database dan (opsional) seeding
-
-Pastikan database yang ditetapkan di `.env` telah ada. Kemudian jalankan:
-
+### 5. Migrasi database
 ```bash
 php artisan migrate
-# Jika ada seed data tersedia:
-php artisan db:seed
 
-# File database tersedia: kaspa_space(1).sql
+# Atau restore dari file SQL yang tersedia:
+# kaspa_space(1).sql
 ```
 
-### 6. Install dependensi Front-end & Build aset
-
-Pastikan Node.js (versi LTS) dan npm atau yarn telah terpasang.
-
+### 6. Install dependensi frontend & build aset
 ```bash
 npm install
-# atau jika menggunakan yarn:
-# yarn install
-
-# Untuk development mode (watch)
-npm run dev
-# atau:
-# yarn dev
-
-# Untuk build production mode:
-npm run build
-# atau:
-# yarn build
+npm run dev       # development (watch)
+npm run build     # production
 ```
 
 ### 7. Jalankan server lokal
-
 ```bash
 php artisan serve
 ```
 
-Kemudian buka browser ke `http://localhost:8000` atau sesuai URL yang ditampilkan.
+Buka browser ke `http://localhost:8000`
+
+---
 
 ## ✅ Catatan Penting
 
-* Pastikan `.env` **tidak** dikomit ke repositori (termasuk file `.env.local`, dsb).
-* Pastikan folder `storage/`, `bootstrap/cache/` memiliki hak akses tulis (writeable) untuk web server.
-* Jika menggunakan layanan pembayaran atau API eksternal, pastikan kunci API dan callback URL telah diatur di `.env`.
-* Jika menggunakan `Vite`/`Tailwind`, periksa konfigurasi di `vite.config.js` dan `tailwind.config.js` untuk memastikan asset path benar.
-* Jika ada perubahan struktur database, jangan lupa memperbarui migrasi dan dokumen ini.
+- Pastikan `.env` **tidak** dikomit ke repositori
+- Folder `storage/` dan `bootstrap/cache/` harus memiliki hak akses tulis
+- Jalankan `php artisan storage:link` untuk mengaktifkan public storage (gambar produk, news, dsb)
+- Untuk notifikasi email booking berjalan, pastikan konfigurasi mail di `.env` sudah diatur
+- Data order lama (sebelum fitur PPN) memiliki `tax = 0` — invoice tetap tampil namun PPN Rp 0
+
+---
+
+## 🔧 Deployment ke Produksi
+
+```bash
+composer install --optimize-autoloader --no-dev
+php artisan migrate --force
+npm run build
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan storage:link
+```
+
+Pastikan hak akses folder `storage` dan `bootstrap/cache` sesuai konfigurasi web server (Nginx/Apache).
+
+---
 
 ## 🧪 Testing
-
-Untuk menjalankan unit test / feature test (jika tersedia):
 
 ```bash
 php artisan test
@@ -123,69 +118,95 @@ php artisan test
 vendor/bin/phpunit
 ```
 
-Pastikan konfigurasi testing di `.env.testing` atau variabel sesuai telah diatur.
+---
 
-## 🔧 Deployment Singkat
+## 📌 Status Pengembangan
 
-Untuk deployment ke server produksi, beberapa hal yang perlu diperhatikan:
+### ✅ Fitur yang Sudah Selesai
 
-1. Pastikan environment file `.env` produksi diatur dengan benar.
-2. Jalankan `composer install --optimize-autoloader --no-dev`.
-3. Jalankan `php artisan migrate --force`.
-4. Jalankan `npm run build` atau `yarn build` untuk asset produksi.
-5. Jalankan `php artisan config:cache`, `php artisan route:cache`, `php artisan view:cache` untuk optimasi.
-6. Pastikan hak akses folder `storage` dan `bootstrap/cache` aman dan sesuai server.
-7. Atur backup database secara rutin.
+**Core & Auth**
+- ✅ Autentikasi user (login, register, logout) — UI redesign terbaru
+- ✅ Role-based access: user, admin, resepsionis
+- ✅ Middleware per role dengan redirect yang sesuai
+- ✅ Profil user: edit nama, email, telepon, password
+- ✅ Persetujuan syarat & ketentuan serta kebijakan privasi saat registrasi
 
-## 📚 Referensi & Dokumentasi
+**Produk & Booking**
+- ✅ CRUD produk dan kategori di admin
+- ✅ Sistem booking ruangan (share desk, private room, meeting room, private office)
+- ✅ Antrian email notifikasi booking
+- ✅ Toleransi waktu dan timer pembayaran otomatis
+- ✅ Pembatalan otomatis pesanan yang melewati batas waktu
+- ✅ Room monitoring real-time di admin
+- ✅ Cek ketersediaan ruangan sebelum checkout
 
-* Laravel Docs: [https://laravel.com/docs](https://laravel.com/docs)
-* Tailwind CSS: [https://tailwindcss.com/docs](https://tailwindcss.com/docs)
-* Vite: [https://vitejs.dev/guide/](https://vitejs.dev/guide/)
+**Pembayaran & Invoice**
+- ✅ Integrasi Midtrans (QRIS, virtual account, kartu kredit)
+- ✅ Pembayaran manual: QRIS image, transfer bank, tunai
+- ✅ Upload bukti pembayaran oleh user
+- ✅ Verifikasi pembayaran oleh admin
+- ✅ PPN 11% dihitung otomatis saat checkout (tax-exclusive, disimpan ke database)
+- ✅ Invoice halaman dengan tema admin (gradient biru, Plus Jakarta Sans)
+- ✅ Stamp visual pada invoice sesuai status: TERBAYAR / DIBATALKAN / REFUND
+- ✅ Status invoice dinamis dari database: Terbayar, Menunggu, Dibatalkan, Refund
+- ✅ Breakdown harga di invoice: Subtotal → Diskon → DPP → PPN 11% → Total
+- ✅ Breakdown PPN di halaman checkout sebelum bayar
+- ✅ Download invoice sebagai PDF
 
-## 📝 Aturan Kontribusi
+**Diskon**
+- ✅ Kode diskon dengan nilai nominal atau persentase
+- ✅ Filter diskon per produk spesifik
+- ✅ Filter diskon per user spesifik (visibility control)
+- ✅ Validasi kode diskon via AJAX di checkout
 
-Jika Anda ingin berkontribusi:
+**Admin Panel**
+- ✅ Dashboard dengan statistik: total pesanan, pengguna, pendapatan, produk aktif
+- ✅ Manajemen pesanan: filter, update status, verifikasi pembayaran, hapus
+- ✅ Manajemen produk, kategori, ruangan
+- ✅ Manajemen user (CRUD)
+- ✅ Halaman statistik lengkap (grafik pendapatan, okupansi, metode pembayaran)
+- ✅ Monitoring ruangan real-time
+- ✅ Manajemen ulasan produk
+- ✅ Pengaturan pembayaran (QRIS image, info bank)
 
-1. Fork repositori ini.
-2. Buat branch fitur dengan nama jelas (`feature/…`, `bugfix/…`).
-3. Pastikan semua test lulus sebelum melakukan pull request.
-4. Ikuti kode gaya (coding style) yang berlaku di project.
+**News & Blog**
+- ✅ CRUD news dan blog di admin panel (`/admin/news`)
+- ✅ Halaman publik: daftar news (`/news`), daftar blog (`/blogs`)
+- ✅ Halaman detail artikel dengan related news (`/news/{slug}`, `/blogs/{slug}`)
+- ✅ Auto-generate slug dari judul
+- ✅ Kontrol publish/unpublish
+- ✅ Tampilan di landing page (section "News and Blogs")
+
+**UI/UX**
+- ✅ Landing page dengan hero images, section layanan, testimoni, news
+- ✅ Tema admin konsisten: biru `#005bbf`, gradient navy→biru, Plus Jakarta Sans
+- ✅ Navbar dinamis dengan dropdown user menu
+- ✅ Footer lengkap dengan informasi kontak
+- ✅ Halaman kontak, media, food & beverage, workspace, jasa profesional
+- ✅ Cart drawer dan modal produk
+
+---
+
+### ⚠️ Kekurangan / Hal yang Belum Selesai
+
+1. **Filter produk per kategori** — Halaman produk (coworking space, dsb) belum ter-filter sesuai kategori. Halaman lain bisa dikloning dari halaman coworking space.
+2. **Gambar-gambar** — Banyak gambar produk, hero, dan konten yang belum diisi.
+3. **Tombol yang belum terhubung** — Beberapa tombol di landing page dan halaman publik masih belum mengarah ke route yang benar.
+4. **Order lama tanpa PPN** — Invoice order lama menampilkan PPN Rp 0 karena dibuat sebelum fitur PPN ditambahkan.
+5. **PKP** — PPN 11% saat ini selalu dihitung untuk semua order. Jika bisnis belum berstatus PKP, perlu ditambahkan toggle on/off di pengaturan admin.
+
+---
+
+## 📚 Referensi
+
+- [Laravel Docs](https://laravel.com/docs)
+- [Inertia.js](https://inertiajs.com)
+- [React](https://react.dev)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [Midtrans Docs](https://docs.midtrans.com)
+
+---
 
 ## 📄 Lisensi
 
-Project ini dilisensikan di bawah lisensi MIT. (Sesuai file `LICENSE` atau sesuai pengaturan).
-
----
-
-Semoga README ini membantu pengembang selanjutnya untuk cepat adaptasi dan melanjutkan pengembangan.
-Jika Anda punya tambahan spesifik (contoh: modul khusus, service eksternal, webhook, dsb), saya bisa bantu lengkapi juga.
-
----
- 
-## 📌 Status Pengembangan
-
-### Kekurangan yang Masih Ada:
-1. Di dalam dashboard admin masih banyak bug seperti: statistik dalam pesanan belum terkalkulasi, belum ada action untuk verifikasi status pesanan, dan masih belum bisa membuat non kategori.
-2. Halaman product seperti Coworking space belum ter filter sesua
-
-i kategori, kemudian halaman lainya masih belum ada. bisa di kloning dari halaman product coworking space untuk halaman product lainya.
-3. Tabel okupansi manual masih belum terhapus.
-4. Gambar-gambar masih banyak yang belum ter input.
-5. Masih banyak tombol yang belum mengarah ke route yang benar.
-
-### Fitur yang Sudah Ditambahkan:
-✅ Sistem diskon dengan pemilihan produk spesifik  
-✅ Sistem diskon dengan pemilihan user spesifik (visibility control)  
-✅ Integrasi Midtrans untuk pembayaran online  
-✅ Auto-fill form checkout untuk user yang sudah login  
-✅ Navbar dinamis dengan dropdown user menu  
-✅ Route admin terpisah dengan middleware  
-✅ User management (CRUD) di admin panel  
-✅ User dashboard dengan riwayat pesanan dan diskon  
-✅ Pembatalan otomatis pesanan >24 jam  
-✅ Status cancelled untuk pesanan  
-✅ Footer lengkap dengan informasi kontak  
-✅ Profil user dengan edit nama, email, phone, dan password  
-
-````
+Project ini dilisensikan di bawah lisensi MIT.

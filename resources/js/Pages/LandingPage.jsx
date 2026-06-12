@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, X } from "lucide-react";
-import { router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import Navbar from "@/Components/Navbar";
 import Footer from "@/Components/Footer";
 import OnlineBookingSection from "./OnlineBookingSection";
@@ -99,6 +99,7 @@ const LandingPage = ({ latestMedia = [] }) => {
 
     return (
         <>
+            <Head><title>Kaspa Space - Coworking Space & Virtual Office</title></Head>
             <div className="min-h-screen bg-white">
                 <Navbar />
 
@@ -218,8 +219,6 @@ const LandingPage = ({ latestMedia = [] }) => {
             <OnlineBookingSection />
             <GrowTogetherSection />
             <FeaturedProductsSection />
-            <KasperAISection />
-            <ELibrarySection />
             <WhyChooseUsSection />
             <ApaKataMereka />
             <MitraKami />

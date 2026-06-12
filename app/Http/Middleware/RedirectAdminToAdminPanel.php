@@ -18,7 +18,12 @@ class RedirectAdminToAdminPanel
 
         // Jika user adalah admin, redirect ke dashboard admin
         // Kecuali untuk AJAX/API request (axios/fetch mengirim Accept: application/json)
-        if ($user && $user->role === 'admin' && !$request->expectsJson() && !$request->ajax()) {
+        $isStaff = $user && (
+            $user->hasAnyRole(['admin', 'resepsionis']) ||
+            in_array($user->role, ['admin', 'resepsionis'])
+        );
+
+        if ($isStaff && !$request->expectsJson() && !$request->ajax()) {
             return redirect()->route('admin.dashboard');
         }
 

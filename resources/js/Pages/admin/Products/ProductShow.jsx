@@ -97,6 +97,7 @@ const ProductsShow = ({ product }) => {
                       <img
                         src={`/storage/${image}`}
                         alt={`${product.title} ${index + 1}`}
+                        loading="lazy" decoding="async"
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -316,6 +317,7 @@ const ProductsShow = ({ product }) => {
                           <img
                             src={`/storage/${recommendedProduct.images[0]}`}
                             alt={recommendedProduct.title}
+                            loading="lazy" decoding="async"
                             className="w-full h-full object-cover rounded-lg"
                           />
                         ) : (

@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
 use App\Models\Category;
-use App\Models\ProductVariant;
+use App\Models\Product;
 use App\Models\ProductRecommendation;
+use App\Models\ProductVariant;
 use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +23,7 @@ class ProductController extends Controller
             })
             ->when($request->search, function ($q, $search) {
                 return $q->where('title', 'like', "%{$search}%")
-                         ->orWhere('subtitle', 'like', "%{$search}%");
+                    ->orWhere('subtitle', 'like', "%{$search}%");
             })
             ->when($request->status !== null, function ($q) use ($request) {
                 // Convert string "true"/"false" to boolean
@@ -31,12 +31,13 @@ class ProductController extends Controller
                 if ($status !== null) {
                     return $q->where('is_active', $status);
                 }
+
                 return $q;
             })
             ->latest();
 
         $products = $query->paginate(12)->withQueryString();
-        
+
         // Add calculated fields for each product
         $products->getCollection()->transform(function ($product) {
             $product->min_price = $product->getMinPriceAttribute();
@@ -44,6 +45,7 @@ class ProductController extends Controller
             $product->variants_count = $product->variants->count();
             // Ensure id and slug are present
             $product->makeVisible(['id', 'slug']);
+
             return $product;
         });
 
@@ -70,166 +72,162 @@ class ProductController extends Controller
     }
 
     public function store(Request $request)
-{
-    \Log::info('Product store request', $request->all());
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'promo_label' => 'nullable|string|max:100',
+            'base_price' => 'required|numeric|min:0',
+            'category_id' => 'required|exists:categories,id',
+            'product_type' => 'nullable|string|in:private_office,share_desk,private_room,meeting_room,virtual_office',
+            'open_time' => 'nullable|string|max:5',
+            'close_time' => 'nullable|string|max:5',
+            'is_active' => 'boolean',
+            'is_featured' => 'boolean',
+            'sort_order' => 'nullable|integer|min:0',
+            'meta_description' => 'nullable|string|max:160',
+            'meta_keywords' => 'nullable|string|max:255',
 
-    $validated = $request->validate([
-        'title' => 'required|string|max:255',
-        'subtitle' => 'nullable|string|max:255',
-        'description' => 'nullable|string',
-        'promo_label' => 'nullable|string|max:100',
-        'base_price' => 'required|numeric|min:0',
-        'category_id' => 'required|exists:categories,id',
-        'product_type' => 'nullable|string|in:private_office,share_desk,private_room,meeting_room,virtual_office',
-        'open_time' => 'nullable|string|max:5',
-        'close_time' => 'nullable|string|max:5',
-        'is_active' => 'boolean',
-        'is_featured' => 'boolean',
-        'sort_order' => 'nullable|integer|min:0',
-        'meta_description' => 'nullable|string|max:160',
-        'meta_keywords' => 'nullable|string|max:255',
+            // Images
+            'images' => 'nullable|array|max:6',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
 
-        // Images
-        'images' => 'nullable|array|max:6',
-        'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
-        
-        // Custom options
-        'custom_options' => 'nullable|array',
-        'custom_options.*.question' => 'required|string',
-        'custom_options.*.type' => 'required|in:checkbox,radio,select,text',
-        'custom_options.*.options' => 'nullable|array',
-        'custom_options.*.required' => 'boolean',
-        
-        // Variants
-        'variants' => 'nullable|array',
-        'variants.*.name' => 'required|string|max:255',
-        'variants.*.price' => 'required|numeric|min:0',
-        'variants.*.compare_price' => 'nullable|numeric|min:0',
-        'variants.*.attributes' => 'nullable|array',
-        'variants.*.stock_quantity' => 'nullable|integer|min:0',
-        'variants.*.manage_stock' => 'nullable|boolean',
-        'variants.*.sku' => 'nullable|string|max:100',
-        'variants.*.duration_hours' => 'nullable|numeric|min:0',
-        'variants.*.sort_order' => 'nullable|integer|min:0',
+            // Custom options
+            'custom_options' => 'nullable|array',
+            'custom_options.*.question' => 'required|string',
+            'custom_options.*.type' => 'required|in:checkbox,radio,select,text',
+            'custom_options.*.options' => 'nullable|array',
+            'custom_options.*.required' => 'boolean',
 
-        // Recommendations
-        'recommendations' => 'nullable|array',
-        'recommendations.*' => 'exists:products,id',
+            // Variants
+            'variants' => 'nullable|array',
+            'variants.*.name' => 'required|string|max:255',
+            'variants.*.price' => 'required|numeric|min:0',
+            'variants.*.compare_price' => 'nullable|numeric|min:0',
+            'variants.*.attributes' => 'nullable|array',
+            'variants.*.stock_quantity' => 'nullable|integer|min:0',
+            'variants.*.manage_stock' => 'nullable|boolean',
+            'variants.*.sku' => 'nullable|string|max:100',
+            'variants.*.duration_hours' => 'nullable|numeric|min:0',
+            'variants.*.sort_order' => 'nullable|integer|min:0',
 
-        // Rooms
-        'room_ids'         => 'nullable|array',
-        'room_ids.*'       => 'exists:rooms,id',
-        'unit_assignments' => 'nullable|array',
-    ]);
+            // Recommendations
+            'recommendations' => 'nullable|array',
+            'recommendations.*' => 'exists:products,id',
 
-    DB::beginTransaction();
+            // Rooms
+            'room_ids' => 'nullable|array',
+            'room_ids.*' => 'exists:rooms,id',
+            'unit_assignments' => 'nullable|array',
+        ]);
 
-    try {
-        // Handle image uploads
-        $imagePaths = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('products', 'public');
-                $imagePaths[] = $path;
-            }
-        }
-        
-        // Prepare product data
-        $productData = [
-            'title' => $validated['title'],
-            'subtitle' => $validated['subtitle'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'promo_label' => $validated['promo_label'] ?? null,
-            'base_price' => $validated['base_price'],
-            'category_id' => $validated['category_id'],
-            'product_type' => $validated['product_type'] ?? null,
-            'open_time' => $validated['open_time'] ?? null,
-            'close_time' => $validated['close_time'] ?? null,
-            'is_active' => $validated['is_active'] ?? true,
-            'is_featured' => $validated['is_featured'] ?? false,
-            'sort_order' => $validated['sort_order'] ?? 0,
-            'meta_description' => $validated['meta_description'] ?? null,
-            'meta_keywords' => $validated['meta_keywords'] ?? null,
-            'images' => $imagePaths,
-            'custom_options' => $validated['custom_options'] ?? null,
-        ];
+        DB::beginTransaction();
 
-        // Let the model handle slug generation in boot method
-        // Don't set slug here unless you want to override it
-        
-        \Log::info('Creating product with data', $productData);
-        
-        // Create product
-        $product = Product::create($productData);
-
-        \Log::info('Product created', ['id' => $product->id]);
-
-        // Create variants if provided
-        if (!empty($validated['variants'])) {
-            foreach ($validated['variants'] as $variantData) {
-                $variantData['product_id'] = $product->id;
-                ProductVariant::create($variantData);
-            }
-        }
-
-        // Create recommendations if provided
-        if (!empty($validated['recommendations'])) {
-            foreach ($validated['recommendations'] as $index => $recommendedProductId) {
-                ProductRecommendation::create([
-                    'product_id' => $product->id,
-                    'recommended_product_id' => $recommendedProductId,
-                    'sort_order' => $index,
-                ]);
-            }
-        }
-
-        // Sync rooms + per-unit assignments
-        $roomIds = array_map('intval', $validated['room_ids'] ?? []);
-        $unitAssignments = $validated['unit_assignments'] ?? [];
-        foreach ($unitAssignments as $roomId => $unitIndices) {
-            $room = \App\Models\Room::find($roomId);
-            if (!$room) continue;
-            $unitProductIds = $room->unit_product_ids ?? [];
-            for ($i = 0; $i < ($room->unit_count ?? 1); $i++) {
-                if (!isset($unitProductIds[$i])) $unitProductIds[$i] = [];
-                $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn($id) => (int)$id !== $product->id));
-            }
-            foreach ((array) $unitIndices as $unitIdx) {
-                $unitIdx = (int) $unitIdx;
-                if (!in_array($product->id, $unitProductIds[$unitIdx] ?? [])) {
-                    $unitProductIds[$unitIdx][] = $product->id;
+        try {
+            // Handle image uploads
+            $imagePaths = [];
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $image) {
+                    $path = $image->store('products', 'public');
+                    $imagePaths[] = $path;
                 }
             }
-            $room->unit_product_ids = $unitProductIds;
-            $room->save();
-            $roomIds[] = (int) $roomId;
+
+            // Prepare product data
+            $productData = [
+                'title' => $validated['title'],
+                'subtitle' => $validated['subtitle'] ?? null,
+                'description' => $validated['description'] ?? null,
+                'promo_label' => $validated['promo_label'] ?? null,
+                'base_price' => $validated['base_price'],
+                'category_id' => $validated['category_id'],
+                'product_type' => $validated['product_type'] ?? null,
+                'open_time' => $validated['open_time'] ?? null,
+                'close_time' => $validated['close_time'] ?? null,
+                'is_active' => $validated['is_active'] ?? true,
+                'is_featured' => $validated['is_featured'] ?? false,
+                'sort_order' => $validated['sort_order'] ?? 0,
+                'meta_description' => $validated['meta_description'] ?? null,
+                'meta_keywords' => $validated['meta_keywords'] ?? null,
+                'images' => $imagePaths,
+                'custom_options' => $validated['custom_options'] ?? null,
+            ];
+
+            // Let the model handle slug generation in boot method
+            // Don't set slug here unless you want to override it
+
+            // Create product
+            $product = Product::create($productData);
+
+            // Create variants if provided
+            if (! empty($validated['variants'])) {
+                foreach ($validated['variants'] as $variantData) {
+                    $variantData['product_id'] = $product->id;
+                    ProductVariant::create($variantData);
+                }
+            }
+
+            // Create recommendations if provided
+            if (! empty($validated['recommendations'])) {
+                foreach ($validated['recommendations'] as $index => $recommendedProductId) {
+                    ProductRecommendation::create([
+                        'product_id' => $product->id,
+                        'recommended_product_id' => $recommendedProductId,
+                        'sort_order' => $index,
+                    ]);
+                }
+            }
+
+            // Sync rooms + per-unit assignments
+            $roomIds = array_map('intval', $validated['room_ids'] ?? []);
+            $unitAssignments = $validated['unit_assignments'] ?? [];
+            foreach ($unitAssignments as $roomId => $unitIndices) {
+                $room = \App\Models\Room::find($roomId);
+                if (! $room) {
+                    continue;
+                }
+                $unitProductIds = $room->unit_product_ids ?? [];
+                for ($i = 0; $i < ($room->unit_count ?? 1); $i++) {
+                    if (! isset($unitProductIds[$i])) {
+                        $unitProductIds[$i] = [];
+                    }
+                    $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn ($id) => (int) $id !== $product->id));
+                }
+                foreach ((array) $unitIndices as $unitIdx) {
+                    $unitIdx = (int) $unitIdx;
+                    if (! in_array($product->id, $unitProductIds[$unitIdx] ?? [])) {
+                        $unitProductIds[$unitIdx][] = $product->id;
+                    }
+                }
+                $room->unit_product_ids = $unitProductIds;
+                $room->save();
+                $roomIds[] = (int) $roomId;
+            }
+            $product->rooms()->sync(array_unique($roomIds));
+
+            DB::commit();
+
+            return redirect()->route('admin.products.index')
+                ->with('success', 'Produk berhasil ditambahkan.');
+
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            \Log::error('Error creating product', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Delete uploaded images if transaction fails
+            foreach ($imagePaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menyimpan produk: '.$e->getMessage()])
+                ->withInput();
         }
-        $product->rooms()->sync(array_unique($roomIds));
-
-        DB::commit();
-        
-        \Log::info('Product saved successfully', ['id' => $product->id]);
-
-        return redirect()->route('admin.products.index')
-            ->with('success', 'Produk berhasil ditambahkan.');
-
-    } catch (\Exception $e) {
-        DB::rollback();
-        
-        \Log::error('Error creating product', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-        
-        // Delete uploaded images if transaction fails
-        foreach ($imagePaths as $path) {
-            Storage::disk('public')->delete($path);
-        }
-
-        return back()->withErrors(['error' => 'Terjadi kesalahan saat menyimpan produk: ' . $e->getMessage()])
-                    ->withInput();
     }
-}
 
     public function show(Product $product)
     {
@@ -238,7 +236,7 @@ class ProductController extends Controller
             'variants' => function ($query) {
                 $query->orderBy('sort_order')->orderBy('name');
             },
-            'recommendedProducts.category'
+            'recommendedProducts.category',
         ]);
 
         return Inertia::render('admin/Products/ProductShow', [
@@ -252,7 +250,7 @@ class ProductController extends Controller
             'variants' => function ($query) {
                 $query->orderBy('sort_order')->orderBy('name');
             },
-            'recommendedProducts'
+            'recommendedProducts',
         ]);
 
         $categories = Category::active()->ordered()->get();
@@ -266,24 +264,24 @@ class ProductController extends Controller
         // Pre-compute which units are assigned to this product per room
         $unitAssignments = [];
         foreach ($rooms as $room) {
-            if (($room->unit_count ?? 1) > 1 && !empty($room->unit_product_ids)) {
+            if (($room->unit_count ?? 1) > 1 && ! empty($room->unit_product_ids)) {
                 $assigned = [];
                 foreach ($room->unit_product_ids as $unitIdx => $productIds) {
                     if (in_array($product->id, (array) $productIds)) {
                         $assigned[] = $unitIdx;
                     }
                 }
-                if (!empty($assigned)) {
+                if (! empty($assigned)) {
                     $unitAssignments[$room->id] = $assigned;
                 }
             }
         }
 
         return Inertia::render('admin/Products/ProductEdit', [
-            'product'        => $product,
-            'categories'     => $categories,
-            'allProducts'    => $allProducts,
-            'rooms'          => $rooms,
+            'product' => $product,
+            'categories' => $categories,
+            'allProducts' => $allProducts,
+            'rooms' => $rooms,
             'productRoomIds' => $productRoomIds,
             'unitAssignments' => $unitAssignments,
         ]);
@@ -294,7 +292,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
-            'slug' => 'nullable|string|max:255|unique:products,slug,' . $product->id,
+            'slug' => 'nullable|string|max:255|unique:products,slug,'.$product->id,
             'description' => 'nullable|string',
             'promo_label' => 'nullable|string|max:100',
             'base_price' => 'required|numeric|min:0',
@@ -312,14 +310,14 @@ class ProductController extends Controller
             'images' => 'nullable|array|max:6',
             'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:2048',
             'existing_images' => 'nullable|array',
-            
+
             // Custom options
             'custom_options' => 'nullable|array',
             'custom_options.*.question' => 'required|string',
             'custom_options.*.type' => 'required|in:checkbox,radio,select,text',
             'custom_options.*.options' => 'nullable|array',
             'custom_options.*.required' => 'boolean',
-            
+
             // Variants
             'variants' => 'nullable|array',
             'variants.*.id' => 'nullable|integer',
@@ -339,8 +337,8 @@ class ProductController extends Controller
             'recommendations.*' => 'exists:products,id',
 
             // Rooms
-            'room_ids'         => 'nullable|array',
-            'room_ids.*'       => 'exists:rooms,id',
+            'room_ids' => 'nullable|array',
+            'room_ids.*' => 'exists:rooms,id',
             'unit_assignments' => 'nullable|array',
         ]);
 
@@ -371,7 +369,7 @@ class ProductController extends Controller
                 foreach ($validated['variants'] as $variantData) {
                     $variant = null;
 
-                    if (!empty($variantData['id'])) {
+                    if (! empty($variantData['id'])) {
                         // Update existing variant by ID
                         $variant = ProductVariant::find($variantData['id']);
                         if ($variant && (int) $variant->product_id === (int) $product->id) {
@@ -380,7 +378,7 @@ class ProductController extends Controller
                         }
                     } else {
                         // No ID - try to match by SKU to avoid duplicate constraint violation
-                        if (!empty($variantData['sku'])) {
+                        if (! empty($variantData['sku'])) {
                             $variant = ProductVariant::where('product_id', $product->id)
                                 ->where('sku', $variantData['sku'])
                                 ->first();
@@ -430,22 +428,33 @@ class ProductController extends Controller
                 $unitProductIds = $room->unit_product_ids ?? [];
                 $changed = false;
                 for ($i = 0; $i < ($room->unit_count ?? 1); $i++) {
-                    if (!isset($unitProductIds[$i])) continue;
+                    if (! isset($unitProductIds[$i])) {
+                        continue;
+                    }
                     $before = count((array) $unitProductIds[$i]);
-                    $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn($id) => (int)$id !== $product->id));
-                    if (count($unitProductIds[$i]) !== $before) $changed = true;
+                    $unitProductIds[$i] = array_values(array_filter((array) $unitProductIds[$i], fn ($id) => (int) $id !== $product->id));
+                    if (count($unitProductIds[$i]) !== $before) {
+                        $changed = true;
+                    }
                 }
-                if ($changed) { $room->unit_product_ids = $unitProductIds; $room->save(); }
+                if ($changed) {
+                    $room->unit_product_ids = $unitProductIds;
+                    $room->save();
+                }
             }
 
             foreach ($unitAssignments as $roomId => $unitIndices) {
                 $room = \App\Models\Room::find($roomId);
-                if (!$room) continue;
+                if (! $room) {
+                    continue;
+                }
                 $unitProductIds = $room->unit_product_ids ?? [];
                 foreach ((array) $unitIndices as $unitIdx) {
                     $unitIdx = (int) $unitIdx;
-                    if (!isset($unitProductIds[$unitIdx])) $unitProductIds[$unitIdx] = [];
-                    if (!in_array($product->id, $unitProductIds[$unitIdx])) {
+                    if (! isset($unitProductIds[$unitIdx])) {
+                        $unitProductIds[$unitIdx] = [];
+                    }
+                    if (! in_array($product->id, $unitProductIds[$unitIdx])) {
                         $unitProductIds[$unitIdx][] = $product->id;
                     }
                 }
@@ -457,30 +466,22 @@ class ProductController extends Controller
 
             DB::commit();
 
-            \Log::info('Product saved', ['id' => $product->id]);
-
             return redirect()->route('admin.products.index')
                 ->with('success', 'Produk berhasil diperbarui.');
 
         } catch (\Exception $e) {
             DB::rollback();
-            \Log::error('Product update failed: ' . $e->getMessage(), [
+            \Log::error('Product update failed: '.$e->getMessage(), [
                 'product_id' => $product->id,
                 'trace' => $e->getTraceAsString(),
             ]);
-            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan: '.$e->getMessage()]);
         }
     }
 
     public function destroy(Product $product)
     {
-        \Log::info('Attempting to delete product', [
-            'id' => $product->id,
-            'slug' => $product->slug,
-            'title' => $product->title,
-            'is_active' => $product->is_active
-        ]);
-
         DB::beginTransaction();
 
         try {
@@ -509,8 +510,6 @@ class ProductController extends Controller
 
             DB::commit();
 
-            \Log::info('Product deleted successfully', ['id' => $product->id]);
-
             return redirect()->route('admin.products.index')
                 ->with('success', 'Produk berhasil dihapus.');
 
@@ -519,9 +518,10 @@ class ProductController extends Controller
             \Log::error('Failed to delete product', [
                 'id' => $product->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus produk: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus produk: '.$e->getMessage()]);
         }
     }
 
@@ -531,7 +531,7 @@ class ProductController extends Controller
 
         try {
             $newProduct = $product->replicate();
-            $newProduct->title = $product->title . ' - Copy';
+            $newProduct->title = $product->title.' - Copy';
             $newProduct->slug = null; // Will be auto-generated
             $newProduct->is_active = false; // Set as draft
             $newProduct->save();
@@ -561,6 +561,7 @@ class ProductController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
+
             return back()->withErrors(['error' => 'Terjadi kesalahan saat menduplikasi produk.']);
         }
     }
@@ -619,14 +620,14 @@ class ProductController extends Controller
             DB::commit();
 
             return redirect()->route('admin.products.index')
-                ->with('success', count($validated['product_ids']) . ' produk berhasil dihapus.');
+                ->with('success', count($validated['product_ids']).' produk berhasil dihapus.');
 
         } catch (\Exception $e) {
             DB::rollback();
-            return back()->withErrors(['error' => 'Gagal menghapus produk: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Gagal menghapus produk: '.$e->getMessage()]);
         }
     }
-
 
     public function uploadImage(Request $request)
     {
@@ -656,7 +657,7 @@ class ProductController extends Controller
     public function toggleFeatured(Product $product)
     {
         $product->update([
-            'is_featured' => !$product->is_featured
+            'is_featured' => ! $product->is_featured,
         ]);
 
         return response()->json([
@@ -674,21 +675,21 @@ class ProductController extends Controller
             })
             ->get();
 
-        $filename = 'products_export_' . date('Y-m-d_H-i-s') . '.csv';
-        $headers = array(
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        );
+        $filename = 'products_export_'.date('Y-m-d_H-i-s').'.csv';
+        $headers = [
+            'Content-type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=$filename",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
 
-        $callback = function() use($products) {
+        $callback = function () use ($products) {
             $file = fopen('php://output', 'w');
-            
+
             // CSV headers
             fputcsv($file, ['ID', 'Title', 'Category', 'Base Price', 'Status', 'Variants Count', 'Created At']);
-            
+
             foreach ($products as $product) {
                 fputcsv($file, [
                     $product->id,
@@ -700,7 +701,7 @@ class ProductController extends Controller
                     $product->created_at->format('Y-m-d H:i:s'),
                 ]);
             }
-            
+
             fclose($file);
         };
 
@@ -719,14 +720,14 @@ class ProductController extends Controller
         $header = array_shift($rows);
 
         DB::beginTransaction();
-        
+
         try {
             foreach ($rows as $row) {
                 if (count($row) === count($header)) {
                     $data = array_combine($header, $row);
-                    
+
                     // Create product from CSV data
-                    if (!empty($data['title'])) {
+                    if (! empty($data['title'])) {
                         Product::create([
                             'title' => $data['title'],
                             'subtitle' => $data['subtitle'] ?? null,
@@ -740,13 +741,14 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            
+
             return redirect()->route('admin.products.index')
                 ->with('success', 'Produk berhasil diimpor.');
-                
+
         } catch (\Exception $e) {
             DB::rollback();
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat mengimpor produk: ' . $e->getMessage()]);
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat mengimpor produk: '.$e->getMessage()]);
         }
     }
 }

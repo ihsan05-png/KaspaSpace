@@ -35,6 +35,8 @@ class PaymentSettingsController extends Controller
                 'account_name'   => $settings->account_name,
                 'open_time'      => $settings->open_time  ?? '08:00',
                 'close_time'     => $settings->close_time ?? '17:00',
+                'ppn_enabled'    => $settings->ppn_enabled ?? true,
+                'ppn_rate'       => $settings->ppn_rate    ?? 11,
             ]
         ]);
     }
@@ -92,27 +94,23 @@ class PaymentSettingsController extends Controller
     }
 
     /**
-     * Update jam operasional
+     * Update pengaturan PPN
      */
-    public function updateOperationalHours(Request $request)
+    public function updatePpn(Request $request)
     {
         $validated = $request->validate([
-            'open_time'  => ['required', 'regex:/^\d{2}:\d{2}$/'],
-            'close_time' => ['required', 'regex:/^\d{2}:\d{2}$/', function ($attr, $value, $fail) use ($request) {
-                if ($value <= $request->open_time) {
-                    $fail('Jam tutup harus setelah jam buka.');
-                }
-            }],
+            'ppn_enabled' => 'required|boolean',
+            'ppn_rate'    => 'required|integer|min:1|max:100',
         ]);
 
         try {
             $settings = PaymentSetting::firstOrNew([]);
             $settings->fill($validated)->save();
 
-            return back()->with('success', 'Jam operasional berhasil diupdate');
-
+            return back()->with('success', 'Pengaturan PPN berhasil diupdate');
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Gagal menyimpan pengaturan PPN: ' . $e->getMessage()]);
         }
     }
+
 }

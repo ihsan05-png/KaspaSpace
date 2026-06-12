@@ -16,5 +16,12 @@ class PaymentSetting extends Model
         'account_name',
         'open_time',
         'close_time',
+        'ppn_enabled',
+        'ppn_rate',
+    ];
+
+    protected $casts = [
+        'ppn_enabled' => 'boolean',
+        'ppn_rate'    => 'integer',
     ];
 }

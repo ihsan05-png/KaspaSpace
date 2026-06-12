@@ -16,7 +16,11 @@ class AdminOrderController extends Controller
 {
     public function index()
     {
-        $orders = Order::with('items.product', 'items.productVariant')
+        $orders = Order::with([
+                'items:id,order_id,product_id,product_name,variant_name,quantity,price,subtotal,booking_start_at,booking_end_at',
+                'items.product:id,images',
+            ])
+            ->select('id','order_number','customer_name','customer_email','customer_phone','total','payment_method','payment_status','status','payment_proof','notes','created_at','paid_at','doc_ktp','doc_npwp','doc_business_license','doc_company_name','doc_pic_name','doc_pic_phone')
             ->latest()
             ->get()
             ->map(function ($order) {
@@ -30,10 +34,16 @@ class AdminOrderController extends Controller
                     'payment_method' => $order->payment_method,
                     'payment_status' => $order->payment_status,
                     'status' => $order->status,
-                    'payment_proof' => $order->payment_proof ? Storage::url($order->payment_proof) : null,
-                    'notes' => $order->notes,
-                    'created_at' => $order->created_at->toIso8601String(),
-                    'paid_at' => $order->paid_at ? $order->paid_at->toIso8601String() : null,
+                    'payment_proof'        => $order->payment_proof ? Storage::url($order->payment_proof) : null,
+                    'notes'                => $order->notes,
+                    'created_at'           => $order->created_at->toIso8601String(),
+                    'paid_at'              => $order->paid_at ? $order->paid_at->toIso8601String() : null,
+                    'doc_ktp'              => $order->doc_ktp ? Storage::url($order->doc_ktp) : null,
+                    'doc_npwp'             => $order->doc_npwp ? Storage::url($order->doc_npwp) : null,
+                    'doc_business_license' => $order->doc_business_license ? Storage::url($order->doc_business_license) : null,
+                    'doc_company_name'     => $order->doc_company_name,
+                    'doc_pic_name'         => $order->doc_pic_name,
+                    'doc_pic_phone'        => $order->doc_pic_phone,
                     'items' => $order->items->map(function ($item) {
                         $productImage = null;
                         if ($item->product && $item->product->images && count($item->product->images) > 0) {
@@ -56,9 +66,9 @@ class AdminOrderController extends Controller
             })
             ->values()
             ->toArray();
-        
+
         return Inertia::render('admin/Orders/Index', [
-            'orders' => $orders
+            'orders' => $orders,
         ]);
     }
 
@@ -236,6 +246,12 @@ class AdminOrderController extends Controller
                         if ($isBookingProduct) {
                             // Booking products: booking times already set during checkout. Just flag it.
                             $item->update(['stock_reduced' => true]);
+
+                            // Konversi hold → confirmed (pembayaran manual dikonfirmasi admin)
+                            \App\Models\BookingHold::where('order_id', $order->id)
+                                ->where('product_id', $item->product_id)
+                                ->where('status', 'active')
+                                ->update(['status' => 'converted']);
                         } elseif ($variant) {
                             // Non-booking products: use global stock
                             $variant->decrementStock($item->quantity);

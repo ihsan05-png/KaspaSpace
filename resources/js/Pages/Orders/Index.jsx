@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { 
     QrCode, 
     Building2, 
@@ -91,6 +91,7 @@ export default function PaymentPage({
 
     return (
         <div className="min-h-screen bg-gray-50 py-8">
+            <Head title="Pesanan Saya" />
             <div className="max-w-4xl mx-auto px-4">
                 {/* Header */}
                 <div className="bg-white rounded-xl shadow-md p-6 mb-6">

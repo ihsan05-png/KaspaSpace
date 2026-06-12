@@ -232,16 +232,32 @@ function DonutChart({ data, colors, size = 180 }) {
 // ============================================================
 // STAT CARD COMPONENT
 // ============================================================
+const ICON_BG_MAP = {
+    'bg-blue-50':   { bg: '#eff6ff' },
+    'bg-green-50':  { bg: '#f0fdf4' },
+    'bg-purple-50': { bg: '#fdf4ff' },
+    'bg-orange-50': { bg: '#fff7ed' },
+};
+
 function StatCard({ icon, iconBg, title, value, prefix = '' }) {
+    const bg = ICON_BG_MAP[iconBg]?.bg || '#f3f4f6';
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconBg}`}>
-                {icon}
+        <div style={{
+            background: '#fff', borderRadius: 14, padding: '18px 20px',
+            boxShadow: '0 1px 6px rgba(26,46,90,0.07)',
+            display: 'flex', flexDirection: 'column', gap: 10,
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {title}
+                </p>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon}
+                </div>
             </div>
-            <div className="mt-4">
-                <p className="text-2xl font-bold text-gray-900">{prefix}{value}</p>
-                <p className="text-sm text-gray-500 mt-1">{title}</p>
-            </div>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                {prefix}{value}
+            </p>
         </div>
     );
 }

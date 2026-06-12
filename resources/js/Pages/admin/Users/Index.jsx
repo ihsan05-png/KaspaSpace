@@ -90,18 +90,18 @@ const UsersIndex = ({ users, guestSubscribers = [] }) => {
         }
     };
 
+    const BLUE = '#005bbf';
+
     const getRoleBadge = (role) => {
         if (role === 'admin') {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    <ShieldCheckIcon className="w-3 h-3 mr-1" />
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#f3e8ff', color: '#7c3aed' }}>
                     Admin
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                <UserIcon className="w-3 h-3 mr-1" />
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#eff6ff', color: BLUE }}>
                 User
             </span>
         );
@@ -111,174 +111,216 @@ const UsersIndex = ({ users, guestSubscribers = [] }) => {
         <AdminLayout title="Kelola Pengguna">
             <Head title="Kelola Pengguna" />
 
-            <div className="p-6">
-                {/* Header */}
-                <div className="mb-6">
-                    <h1 className="text-2xl font-semibold text-gray-900">Kelola Pengguna</h1>
-                    <p className="mt-1 text-sm text-gray-600">
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+                <div>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}>
+                        Kelola Pengguna
+                    </h1>
+                    <p style={{ fontSize: 14, color: '#6b7280', marginTop: 6 }}>
                         Kelola pengguna dan hak akses sistem
                     </p>
                 </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                        onClick={() => setShowNewsletterModal(true)}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '9px 18px', background: '#f0fdf4', color: '#16a34a',
+                            border: '1px solid #bbf7d0', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                        }}
+                    >
+                        <EnvelopeIcon style={{ width: 16, height: 16 }} />
+                        Kirim Newsletter
+                        {totalSubscribers > 0 && (
+                            <span style={{ marginLeft: 4, padding: '1px 8px', background: '#16a34a', color: '#fff', borderRadius: 20, fontSize: 11 }}>
+                                {totalSubscribers}
+                            </span>
+                        )}
+                    </button>
+                    <Link
+                        href={route('admin.users.create')}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '9px 18px', background: BLUE, color: '#fff',
+                            borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                        }}
+                    >
+                        <PlusIcon style={{ width: 16, height: 16 }} />
+                        Tambah Pengguna
+                    </Link>
+                </div>
+            </div>
 
-                {/* Actions Bar */}
-                <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    {/* Search */}
-                    <div className="relative flex-1 max-w-md">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                        </div>
+            {/* Search + Table */}
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', overflow: 'hidden', marginBottom: 20 }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, maxWidth: 360, position: 'relative' }}>
+                        <MagnifyingGlassIcon style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#9ca3af' }} />
                         <input
                             type="text"
                             placeholder="Cari pengguna..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            style={{
+                                width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 9, paddingBottom: 9,
+                                border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151',
+                                outline: 'none', boxSizing: 'border-box',
+                            }}
                         />
                     </div>
-
-                    {/* Buttons */}
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setShowNewsletterModal(true)}
-                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        >
-                            <EnvelopeIcon className="h-5 w-5 mr-2" />
-                            Kirim Newsletter
-                            {totalSubscribers > 0 && (
-                                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                    {totalSubscribers}
-                                </span>
-                            )}
-                        </button>
-                        <Link
-                            href={route('admin.users.create')}
-                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            <PlusIcon className="h-5 w-5 mr-2" />
-                            Tambah Pengguna
-                        </Link>
-                    </div>
+                    {filteredUsers.length > 0 && (
+                        <span style={{ fontSize: 13, color: '#9ca3af', marginLeft: 'auto' }}>
+                            {filteredUsers.length} pengguna{searchTerm ? ` dari ${users.length}` : ''}
+                        </span>
+                    )}
                 </div>
 
-                {/* Users Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    {filteredUsers.length === 0 ? (
-                        <div className="text-center py-12">
-                            <UserIcon className="mx-auto h-12 w-12 text-gray-400" />
-                            <h3 className="mt-2 text-sm font-medium text-gray-900">
-                                {searchTerm ? 'Pengguna tidak ditemukan' : 'Belum ada pengguna'}
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                {searchTerm ? 'Coba kata kunci lain' : 'Mulai dengan menambahkan pengguna baru'}
-                            </p>
-                            {!searchTerm && (
-                                <div className="mt-6">
-                                    <Link
-                                        href={route('admin.users.create')}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                {filteredUsers.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+                        {searchTerm ? 'Pengguna tidak ditemukan' : 'Belum ada pengguna'}
+                    </div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#f8faff' }}>
+                                    {['Nama', 'Email', 'Role', 'Terdaftar', 'Terms', 'Privacy', 'Newsletter', 'Aksi'].map((h, i) => (
+                                        <th key={h} style={{
+                                            padding: '11px 18px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                                            textAlign: i >= 4 ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                        }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredUsers.map((user, idx) => (
+                                    <tr key={user.id}
+                                        style={{ borderTop: '1px solid #f0f2f8', background: idx % 2 === 0 ? '#fff' : '#fafbff' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafbff'}
                                     >
-                                        <PlusIcon className="h-5 w-5 mr-2" />
-                                        Tambah Pengguna
-                                    </Link>
-                                </div>
-                            )}
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                <div style={{
+                                                    width: 32, height: 32, borderRadius: '50%', background: '#eff6ff',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 700, color: BLUE }}>
+                                                        {user.name.charAt(0).toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{user.name}</span>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <span style={{ fontSize: 13, color: '#374151' }}>{user.email}</span>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            {getRoleBadge(user.role)}
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                                {new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        </td>
+                                        {[user.agreed_terms, user.agreed_privacy, user.agreed_newsletter].map((agreed, i) => (
+                                            <td key={i} style={{ padding: '14px 18px', textAlign: 'center' }}>
+                                                {agreed
+                                                    ? <CheckIcon style={{ width: 16, height: 16, color: '#16a34a', margin: '0 auto', display: 'block' }} />
+                                                    : <XMarkIcon style={{ width: 16, height: 16, color: '#d1d5db', margin: '0 auto', display: 'block' }} />
+                                                }
+                                            </td>
+                                        ))}
+                                        <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                                                <Link href={route('admin.users.edit', user.id)}
+                                                    style={{ color: '#9ca3af', textDecoration: 'none', display: 'flex' }}>
+                                                    <PencilIcon style={{ width: 15, height: 15 }} />
+                                                </Link>
+                                                <button onClick={() => handleDelete(user)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                                                    <TrashIcon style={{ width: 15, height: 15 }} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Guest Newsletter Subscribers */}
+            {guestSubscribers.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', overflow: 'hidden' }}>
+                    <button
+                        onClick={() => setShowGuestSubscribers(!showGuestSubscribers)}
+                        style={{
+                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '16px 20px', background: 'none', border: 'none', cursor: 'pointer',
+                            borderBottom: showGuestSubscribers ? '1px solid #f0f2f8' : 'none',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <UserGroupIcon style={{ width: 18, height: 18, color: '#16a34a' }} />
+                            </div>
+                            <div style={{ textAlign: 'left' }}>
+                                <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Guest Newsletter Subscribers</p>
+                                <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>{guestSubscribers.length} guest telah subscribe newsletter saat checkout</p>
+                            </div>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Nama
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Email
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Role
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Terdaftar
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Terms
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Privacy
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Newsletter
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Aksi
-                                        </th>
+                        {showGuestSubscribers
+                            ? <ChevronUpIcon style={{ width: 16, height: 16, color: '#9ca3af' }} />
+                            : <ChevronDownIcon style={{ width: 16, height: 16, color: '#9ca3af' }} />
+                        }
+                    </button>
+
+                    {showGuestSubscribers && (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8faff' }}>
+                                        {['Nama', 'Email', 'Subscribed', 'Aksi'].map((h, i) => (
+                                            <th key={h} style={{
+                                                padding: '11px 18px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                                                textAlign: i === 3 ? 'right' : 'left', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                            }}>{h}</th>
+                                        ))}
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredUsers.map((user) => (
-                                        <tr key={user.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <div className="flex-shrink-0 h-10 w-10">
-                                                        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                            <span className="text-indigo-600 font-medium text-sm">
-                                                                {user.name.charAt(0).toUpperCase()}
-                                                            </span>
-                                                        </div>
+                                <tbody>
+                                    {guestSubscribers.map((subscriber, idx) => (
+                                        <tr key={subscriber.id}
+                                            style={{ borderTop: '1px solid #f0f2f8', background: idx % 2 === 0 ? '#fff' : '#fafbff' }}
+                                        >
+                                            <td style={{ padding: '14px 18px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>
+                                                            {subscriber.name.charAt(0).toUpperCase()}
+                                                        </span>
                                                     </div>
-                                                    <div className="ml-4">
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {user.name}
-                                                        </div>
+                                                    <div>
+                                                        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{subscriber.name}</p>
+                                                        <p style={{ fontSize: 11, color: '#16a34a', margin: 0 }}>Guest</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">{user.email}</div>
+                                            <td style={{ padding: '14px 18px' }}>
+                                                <span style={{ fontSize: 13, color: '#374151' }}>{subscriber.email}</span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {getRoleBadge(user.role)}
+                                            <td style={{ padding: '14px 18px' }}>
+                                                <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                                    {new Date(subscriber.subscribed_at || subscriber.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(user.created_at).toLocaleDateString('id-ID', {
-                                                    day: 'numeric',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {user.agreed_terms ? (
-                                                    <CheckIcon className="h-5 w-5 text-green-500 mx-auto" />
-                                                ) : (
-                                                    <XMarkIcon className="h-5 w-5 text-gray-300 mx-auto" />
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {user.agreed_privacy ? (
-                                                    <CheckIcon className="h-5 w-5 text-green-500 mx-auto" />
-                                                ) : (
-                                                    <XMarkIcon className="h-5 w-5 text-gray-300 mx-auto" />
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {user.agreed_newsletter ? (
-                                                    <CheckIcon className="h-5 w-5 text-green-500 mx-auto" />
-                                                ) : (
-                                                    <XMarkIcon className="h-5 w-5 text-gray-300 mx-auto" />
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <Link
-                                                    href={route('admin.users.edit', user.id)}
-                                                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                                >
-                                                    <PencilIcon className="h-5 w-5 inline" />
-                                                </Link>
-                                                <button
-                                                    onClick={() => handleDelete(user)}
-                                                    className="text-red-600 hover:text-red-900"
-                                                >
-                                                    <TrashIcon className="h-5 w-5 inline" />
+                                            <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                                                <button onClick={() => handleUnsubscribe(subscriber)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex', padding: 0 }}>
+                                                    <TrashIcon style={{ width: 15, height: 15 }} />
                                                 </button>
                                             </td>
                                         </tr>
@@ -288,113 +330,7 @@ const UsersIndex = ({ users, guestSubscribers = [] }) => {
                         </div>
                     )}
                 </div>
-
-                {/* Summary */}
-                {filteredUsers.length > 0 && (
-                    <div className="mt-4 text-sm text-gray-500">
-                        Menampilkan {filteredUsers.length} pengguna
-                        {searchTerm && ` dari ${users.length} total`}
-                    </div>
-                )}
-
-                {/* Guest Newsletter Subscribers Section */}
-                {guestSubscribers.length > 0 && (
-                    <div className="mt-8">
-                        <button
-                            onClick={() => setShowGuestSubscribers(!showGuestSubscribers)}
-                            className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 hover:from-green-100 hover:to-emerald-100 transition-all"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-100 rounded-lg">
-                                    <UserGroupIcon className="h-5 w-5 text-green-600" />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="font-semibold text-gray-900">
-                                        Guest Newsletter Subscribers
-                                    </h3>
-                                    <p className="text-sm text-gray-600">
-                                        {guestSubscribers.length} guest telah subscribe newsletter saat checkout
-                                    </p>
-                                </div>
-                            </div>
-                            {showGuestSubscribers ? (
-                                <ChevronUpIcon className="h-5 w-5 text-gray-500" />
-                            ) : (
-                                <ChevronDownIcon className="h-5 w-5 text-gray-500" />
-                            )}
-                        </button>
-
-                        {showGuestSubscribers && (
-                            <div className="mt-4 bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-green-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Nama
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Email
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Subscribed
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Aksi
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {guestSubscribers.map((subscriber) => (
-                                                <tr key={subscriber.id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="flex-shrink-0 h-10 w-10">
-                                                                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                                                                    <span className="text-green-600 font-medium text-sm">
-                                                                        {subscriber.name.charAt(0).toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">
-                                                                    {subscriber.name}
-                                                                </div>
-                                                                <div className="text-xs text-green-600">
-                                                                    Guest
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-900">{subscriber.email}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {new Date(subscriber.subscribed_at || subscriber.created_at).toLocaleDateString('id-ID', {
-                                                            day: 'numeric',
-                                                            month: 'short',
-                                                            year: 'numeric'
-                                                        })}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <button
-                                                            onClick={() => handleUnsubscribe(subscriber)}
-                                                            className="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
-                                                            title="Hapus dari newsletter"
-                                                        >
-                                                            <TrashIcon className="h-5 w-5" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Newsletter Modal */}
             {showNewsletterModal && (

@@ -58,14 +58,9 @@ class ProductController extends Controller
             ->map(function ($product) {
                 return $this->formatProductForInertia($product);
             });
-        
-        // Debug: Log first product
-        if ($products->isNotEmpty()) {
-            \Log::info('First product from index:', $products->first());
-        }
-        
+
         return Inertia::render('Products/Index', [
-            'products' => $products->values()->all(), // PENTING: Convert ke plain array
+            'products' => $products->values()->all(),
         ]);
     }
 
@@ -257,39 +252,22 @@ class ProductController extends Controller
         if (empty($customOptions)) {
             return [];
         }
-        
-        // Jika sudah array, return langsung
-        if (is_array($customOptions)) {
-            // PENTING: Map ulang untuk memastikan struktur konsisten
-            return array_map(function($option) {
-                return [
-                    'name' => $option['question'] ?? $option['name'] ?? '',
-                    'label' => $option['question'] ?? $option['label'] ?? $option['name'] ?? '',
-                    'type' => $option['type'] ?? 'text',
-                    'required' => $option['required'] ?? false,
-                    'placeholder' => $option['placeholder'] ?? null,
-                    'options' => $option['options'] ?? null,
-                ];
-            }, $customOptions);
-        }
-        
-        // Jika string JSON, decode
+
         if (is_string($customOptions)) {
-            $decoded = json_decode($customOptions, true);
-            if (is_array($decoded)) {
-                return array_map(function($option) {
-                    return [
-                        'name' => $option['question'] ?? $option['name'] ?? '',
-                        'label' => $option['question'] ?? $option['label'] ?? $option['name'] ?? '',
-                        'type' => $option['type'] ?? 'text',
-                        'required' => $option['required'] ?? false,
-                        'placeholder' => $option['placeholder'] ?? null,
-                        'options' => $option['options'] ?? null,
-                    ];
-                }, $decoded);
-            }
+            $customOptions = json_decode($customOptions, true);
         }
-        
-        return [];
+
+        if (! is_array($customOptions)) {
+            return [];
+        }
+
+        return array_map(fn ($option) => [
+            'name'        => $option['question'] ?? $option['name'] ?? '',
+            'label'       => $option['question'] ?? $option['label'] ?? $option['name'] ?? '',
+            'type'        => $option['type'] ?? 'text',
+            'required'    => $option['required'] ?? false,
+            'placeholder' => $option['placeholder'] ?? null,
+            'options'     => $option['options'] ?? null,
+        ], $customOptions);
     }
 }

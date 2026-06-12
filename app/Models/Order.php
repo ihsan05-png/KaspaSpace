@@ -19,12 +19,19 @@ class Order extends Model
         'discount_id',
         'discount_code',
         'discount_amount',
-        'total', 
+        'tax',
+        'total',
         'status',
         'payment_method',
         'payment_status',
         'payment_proof',
-        'paid_at'
+        'paid_at',
+        'doc_ktp',
+        'doc_npwp',
+        'doc_business_license',
+        'doc_company_name',
+        'doc_pic_name',
+        'doc_pic_phone',
     ];
 
     protected $casts = [

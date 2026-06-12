@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import Navbar from '@/Components/Navbar';
 import Footer from '@/Components/Footer';
 import { CalendarIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline';
@@ -32,6 +32,7 @@ const Media = ({ latestBlogs = [], latestNews = [] }) => {
                     <img
                         src={`/storage/${newsItem.image}`}
                         alt={newsItem.title}
+                        loading="lazy" decoding="async"
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                     />
                 </div>
@@ -80,6 +81,7 @@ const Media = ({ latestBlogs = [], latestNews = [] }) => {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <Head title="Media" />
             <Navbar />
             <section className="max-w-7xl mx-auto px-4 py-16">
                 <div className="mb-12 text-center">

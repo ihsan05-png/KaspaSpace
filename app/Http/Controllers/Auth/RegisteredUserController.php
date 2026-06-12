@@ -60,6 +60,8 @@ class RegisteredUserController extends Controller
             'agreed_at' => now(),
         ]);
 
+        $user->assignRole('user');
+
         event(new Registered($user));
 
         Auth::login($user);

@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Schedule stock restoration command to run every minute
 Schedule::command('booking:restore-stock')->everyMinute();
+
+// Lepaskan booking hold yang expired setiap menit
+Schedule::command('holds:release-expired')->everyMinute();

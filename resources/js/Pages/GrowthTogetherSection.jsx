@@ -21,7 +21,10 @@ const GrowTogetherSection = () => {
           <h1 className="text-white text-4xl md:text-5xl font-bold">
             Tabel Reservasi
           </h1>
-          <button className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300">
+          <button 
+            onClick={() => window.location.href = '/workspace#schedule'}
+            className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300"
+          >
             Lihat Jadwalnya
           </button>
         </div>

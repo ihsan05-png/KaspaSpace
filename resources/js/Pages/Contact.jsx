@@ -1,279 +1,208 @@
 import React, { useState } from 'react';
+import { Head } from '@inertiajs/react';
 import Navbar from '@/Components/Navbar';
 import Footer from '@/Components/Footer';
-import { MapPinIcon, ClockIcon, PhoneIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
-import meetingRoomImage from '../../images/meeting-room1.jpg';
+import { MapPin, Clock, Phone, Mail, ArrowRight } from 'lucide-react';
+import workspaceImg from '../../images/workspace-hero.jpg';
 
 const Contact = () => {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        whatsapp: '',
-        message: ''
-    });
-
+    const [formData, setFormData] = useState({ name: '', email: '', whatsapp: '', message: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState(null);
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    };
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-
-        // Kirim ke WhatsApp
-        const message = `*Pesan dari Website Kaspa Space*\n\nNama: ${formData.name}\nEmail: ${formData.email}\nWhatsApp: ${formData.whatsapp}\n\nPesan:\n${formData.message}`;
-        const whatsappUrl = `https://wa.me/62895363501632?text=${encodeURIComponent(message)}`;
-        
-        window.open(whatsappUrl, '_blank');
-        
+        const msg = `*Pesan dari Website Kaspa Space*\n\nNama: ${formData.name}\nEmail: ${formData.email}\nWhatsApp: ${formData.whatsapp}\n\nPesan:\n${formData.message}`;
+        window.open(`https://wa.me/62895363501632?text=${encodeURIComponent(msg)}`, '_blank');
         setIsSubmitting(false);
         setSubmitStatus('success');
-        
-        // Reset form
-        setFormData({
-            name: '',
-            email: '',
-            whatsapp: '',
-            message: ''
-        });
-
-        // Reset status setelah 3 detik
-        setTimeout(() => {
-            setSubmitStatus(null);
-        }, 3000);
+        setFormData({ name: '', email: '', whatsapp: '', message: '' });
+        setTimeout(() => setSubmitStatus(null), 3000);
     };
 
+    const infoItems = [
+        {
+            icon: MapPin,
+            iconBg: '#005bbf',
+            title: 'Kantor Pusat',
+            content: 'Kaspa Space - Jl. Adi Sucipto Blok I,\nManahan, Banjarsari, Surakarta, 57139.',
+            cardBg: 'rgba(0,91,191,0.06)',
+        },
+        {
+            icon: Clock,
+            iconBg: '#005bbf',
+            title: 'Operasional',
+            content: 'Senin - Sabtu,\n08:00 - 17:00 WIB',
+            cardBg: 'rgba(0,91,191,0.06)',
+        },
+        {
+            icon: Phone,
+            iconBg: '#25d366',
+            title: 'WhatsApp',
+            content: '+62 895 3635 01632',
+            href: 'https://wa.me/62895363501632',
+            cardBg: 'rgba(37,211,102,0.07)',
+        },
+        {
+            icon: Mail,
+            iconBg: '#005bbf',
+            title: 'Email',
+            content: 'hello@kaspaspace.com',
+            href: 'mailto:hello@kaspaspace.com',
+            cardBg: 'rgba(0,91,191,0.06)',
+        },
+    ];
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
+        <div className="min-h-screen antialiased" style={{ backgroundColor: '#fff', color: '#191c1d', fontFamily: 'Inter, sans-serif' }}>
+            <Head title="Kontak" />
             <Navbar />
-            
-            {/* Hero Section */}
-            <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                        Kontak Kami
-                    </h1>
-                    <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-                        Hubungi kami untuk mendapatkan informasi layanan atau kerjasama bisnis.
-                    </p>
+
+            {/* ── HERO ── */}
+            <section className="max-w-7xl mx-auto px-6 lg:px-8 pt-16 pb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+                    <div>
+                        <h1 className="font-extrabold tracking-tight leading-tight mb-4"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(2.8rem, 5.5vw, 4rem)', color: '#191c1d' }}>
+                            Kontak Kami
+                        </h1>
+                        <p className="text-base leading-relaxed" style={{ color: '#414754', maxWidth: '22rem' }}>
+                            Hubungi kami untuk mendapatkan informasi layanan atau kerjasama bisnis.
+                        </p>
+                    </div>
+                    <div className="hidden lg:block rounded-2xl overflow-hidden"
+                        style={{ height: '340px', boxShadow: '0 12px 36px rgba(25,28,29,0.10)' }}>
+                        <img src={workspaceImg} alt="Kaspa Space" className="w-full h-full object-cover" />
+                    </div>
                 </div>
             </section>
 
-            <section className="py-16">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid lg:grid-cols-2 gap-12">
-                        {/* Contact Form */}
-                        <div>
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <h2 className="text-3xl font-bold text-slate-900 mb-2">
-                                    Kontak Kami
-                                </h2>
-                                <p className="text-slate-600 mb-8">
-                                    Hubungi kami untuk mendapatkan informasi layanan atau kerjasama bisnis.
-                                </p>
+            {/* ── FORM + INFO ── */}
+            <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-14">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-                                {submitStatus === 'success' && (
-                                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                        <p className="text-green-700 text-sm">
-                                            Pesan berhasil dikirim! Kami akan menghubungi Anda segera.
-                                        </p>
-                                    </div>
-                                )}
+                    {/* Form card */}
+                    <div className="lg:col-span-3">
+                        <div className="rounded-2xl p-8"
+                            style={{ background: '#fff', border: '1.5px solid rgba(193,198,214,0.35)', boxShadow: '0 4px 24px rgba(25,28,29,0.06)' }}>
+                            <h2 className="font-bold mb-1"
+                                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.35rem', color: '#191c1d' }}>
+                                Kirim Pesan
+                            </h2>
+                            <p className="text-sm mb-7" style={{ color: '#6b7280' }}>
+                                Isi form di bawah, kami akan segera merespons.
+                            </p>
 
-                                <form onSubmit={handleSubmit} className="space-y-6">
-                                    {/* Nama */}
+                            {submitStatus === 'success' && (
+                                <div className="mb-6 px-4 py-3 rounded-xl text-sm"
+                                    style={{ background: '#e8f5e9', border: '1px solid #a5d6a7', color: '#2e7d32' }}>
+                                    Pesan berhasil dikirim! Kami akan menghubungi Anda segera.
+                                </div>
+                            )}
+
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nama*
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="name"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleChange}
-                                            placeholder="Masukkan nama lengkap Anda"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            required
-                                        />
+                                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                                            style={{ color: '#6b7280' }}>Nama Lengkap</label>
+                                        <input type="text" name="name" value={formData.name} onChange={handleChange}
+                                            placeholder="Masukkan nama Anda" required
+                                            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                                            style={{ background: '#f3f4f5', border: '1px solid transparent', color: '#191c1d' }}
+                                            onFocus={e => e.target.style.border = '1px solid rgba(0,91,191,0.35)'}
+                                            onBlur={e => e.target.style.border = '1px solid transparent'} />
                                     </div>
-
-                                    {/* Email */}
                                     <div>
-                                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email*
-                                        </label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            placeholder="Masukkan alamat email Anda"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* WhatsApp */}
-                                    <div>
-                                        <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-2">
-                                            WhatsApp*
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            id="whatsapp"
-                                            name="whatsapp"
-                                            value={formData.whatsapp}
-                                            onChange={handleChange}
-                                            placeholder="Masukkan nomor WhatsApp Anda"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Pesan */}
-                                    <div>
-                                        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                                            Pesan*
-                                        </label>
-                                        <textarea
-                                            id="message"
-                                            name="message"
-                                            value={formData.message}
-                                            onChange={handleChange}
-                                            placeholder="Tuliskan pesan Anda di sini..."
-                                            rows="5"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                                            required
-                                        ></textarea>
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isSubmitting ? 'Mengirim...' : 'Kirim Pesan'}
-                                    </button>
-                                </form>
-                            </div>
-
-                            {/* Contact Image */}
-                            <div className="mt-8">
-                                <img
-                                    src={meetingRoomImage}
-                                    alt="Kaspa Space Meeting Room"
-                                    className="w-full h-64 object-cover rounded-2xl shadow-lg"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Office Info & Map */}
-                        <div className="space-y-8">
-                            {/* Kantor Pusat */}
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <h2 className="text-3xl font-bold text-slate-900 mb-4">
-                                    Kantor Pusat
-                                </h2>
-                                <p className="text-slate-600 mb-8">
-                                    Kaspa Space berada di sebelah barat Stadion Manahan Solo. Silakan jika ingin berkunjung untuk survei atau sewa kantor maupun sekedar berbincang tentang layanan kami.
-                                </p>
-
-                                <div className="space-y-6">
-                                    {/* Alamat */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <MapPinIcon className="w-6 h-6 text-blue-600" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 mb-1">
-                                                Alamat Kantor Pusat
-                                            </h3>
-                                            <p className="text-gray-600">
-                                                Kaspa Space - Jl. Adi Sucipto Blok I,<br />
-                                                Manahan, Banjarsari, Surakarta, 57139.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Operasional */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <ClockIcon className="w-6 h-6 text-blue-600" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 mb-1">
-                                                Operasional
-                                            </h3>
-                                            <p className="text-gray-600">
-                                                Senin - Sabtu, 08:00 - 17:00 WIB
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* WhatsApp */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <PhoneIcon className="w-6 h-6 text-blue-600" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 mb-1">
-                                                WhatsApp
-                                            </h3>
-                                            <a href="https://wa.me/6281234567890" className="text-blue-600 hover:text-blue-700">
-                                                +62 812 3456 7890
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    {/* Email */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <EnvelopeIcon className="w-6 h-6 text-blue-600" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 mb-1">
-                                                Email
-                                            </h3>
-                                            <a href="mailto:hello@kaspaspace.com" className="text-blue-600 hover:text-blue-700">
-                                                hello@kaspaspace.com
-                                            </a>
-                                        </div>
+                                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                                            style={{ color: '#6b7280' }}>WhatsApp</label>
+                                        <input type="tel" name="whatsapp" value={formData.whatsapp} onChange={handleChange}
+                                            placeholder="+62 8xx xxxx xxxx" required
+                                            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                                            style={{ background: '#f3f4f5', border: '1px solid transparent', color: '#191c1d' }}
+                                            onFocus={e => e.target.style.border = '1px solid rgba(0,91,191,0.35)'}
+                                            onBlur={e => e.target.style.border = '1px solid transparent'} />
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Google Maps */}
-                            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                <iframe
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3955.0821!2d110.7982496!3d-7.5543959!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e7a150836ddfc5f%3A0x6a0a0e823bb991f2!2sCoworking%20%26%20Virtual%20Office%20-%20Kaspa%20Space%20Manahan!5e0!3m2!1sen!2sid!4v1736326789123"
-                                    width="100%"
-                                    height="400"
-                                    style={{ border: 0 }}
-                                    allowFullScreen=""
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer-when-downgrade"
-                                    title="Lokasi Kaspa Space"
-                                ></iframe>
-                            </div>
+                                <div>
+                                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                                        style={{ color: '#6b7280' }}>Email</label>
+                                    <input type="email" name="email" value={formData.email} onChange={handleChange}
+                                        placeholder="nama@perusahaan.com" required
+                                        className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                                        style={{ background: '#f3f4f5', border: '1px solid transparent', color: '#191c1d' }}
+                                        onFocus={e => e.target.style.border = '1px solid rgba(0,91,191,0.35)'}
+                                        onBlur={e => e.target.style.border = '1px solid transparent'} />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                                        style={{ color: '#6b7280' }}>Pesan</label>
+                                    <textarea name="message" value={formData.message} onChange={handleChange}
+                                        placeholder="Jelaskan kebutuhan atau pertanyaan Anda..."
+                                        rows={5} required
+                                        className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
+                                        style={{ background: '#f3f4f5', border: '1px solid transparent', color: '#191c1d' }}
+                                        onFocus={e => e.target.style.border = '1px solid rgba(0,91,191,0.35)'}
+                                        onBlur={e => e.target.style.border = '1px solid transparent'} />
+                                </div>
+
+                                <button type="submit" disabled={isSubmitting}
+                                    className="flex items-center gap-2 px-7 py-3 rounded-xl font-bold text-sm text-white"
+                                    style={{ background: '#005bbf', boxShadow: '0 4px 14px rgba(0,91,191,0.3)' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#1a73e8'}
+                                    onMouseLeave={e => e.currentTarget.style.background = '#005bbf'}>
+                                    {isSubmitting ? 'Mengirim...' : 'Kirim Pesan'}
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </form>
                         </div>
                     </div>
+
+                    {/* Info cards */}
+                    <div className="lg:col-span-2 flex flex-col gap-3">
+                        {infoItems.map(({ icon: Icon, iconBg, title, content, href, cardBg }) => (
+                            <div key={title} className="flex items-start gap-4 rounded-2xl px-5 py-4"
+                                style={{ background: cardBg }}>
+                                <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                                    style={{ background: iconBg }}>
+                                    <Icon className="w-5 h-5" style={{ color: '#fff' }} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider mb-0.5"
+                                        style={{ color: '#6b7280' }}>{title}</p>
+                                    {href ? (
+                                        <a href={href}
+                                            className="text-sm font-semibold whitespace-pre-line hover:underline"
+                                            style={{ color: '#191c1d' }}>
+                                            {content}
+                                        </a>
+                                    ) : (
+                                        <p className="text-sm font-semibold whitespace-pre-line"
+                                            style={{ color: '#191c1d' }}>{content}</p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ── MAP ── */}
+            <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-20">
+                <div className="rounded-2xl overflow-hidden"
+                    style={{ boxShadow: '0 4px 20px rgba(25,28,29,0.08)' }}>
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3955.0821!2d110.7982496!3d-7.5543959!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e7a150836ddfc5f%3A0x6a0a0e823bb991f2!2sCoworking%20%26%20Virtual%20Office%20-%20Kaspa%20Space%20Manahan!5e0!3m2!1sen!2sid!4v1736326789123"
+                        width="100%" height="400"
+                        style={{ border: 0, display: 'block' }}
+                        allowFullScreen="" loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title="Lokasi Kaspa Space"
+                    />
                 </div>
             </section>
 

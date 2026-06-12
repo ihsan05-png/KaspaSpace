@@ -6,7 +6,6 @@ import {
     PencilIcon,
     TrashIcon,
     EyeIcon,
-    EyeSlashIcon,
     Bars3Icon,
 } from "@heroicons/react/24/outline";
 
@@ -94,386 +93,251 @@ const CategoriesIndex = ({ categories }) => {
         { value: "cog", label: "⚙️ Cog" },
     ];
 
+    const BLUE = '#005bbf';
+
     return (
         <AdminLayout title="Kategori">
             <Head title="Kategori" />
 
-            <div className="p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">
-                            Kategori
-                        </h1>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Kelola kategori produk untuk memudahkan pelanggan
-                            menemukan produk
-                        </p>
-                    </div>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+                <div>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}>
+                        Kategori
+                    </h1>
+                    <p style={{ fontSize: 14, color: '#6b7280', marginTop: 6 }}>
+                        Kelola kategori produk untuk memudahkan pelanggan menemukan produk
+                    </p>
+                </div>
+                <button
+                    onClick={() => setShowCreateForm(!showCreateForm)}
+                    style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '9px 18px', background: BLUE, color: '#fff',
+                        border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    }}
+                >
+                    <PlusIcon style={{ width: 16, height: 16 }} />
+                    Tambah Kategori
+                </button>
+            </div>
 
-                    <button
-                        onClick={() => setShowCreateForm(!showCreateForm)}
-                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                    >
-                        <PlusIcon className="h-5 w-5 mr-2" />
-                        Tambah Kategori
-                    </button>
+            {/* Create/Edit Form */}
+            {(showCreateForm || editingCategory) && (
+                <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', marginBottom: 20, overflow: 'hidden' }}>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f2f8' }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>
+                            {editingCategory ? 'Edit Kategori' : 'Tambah Kategori'}
+                        </h3>
+                    </div>
+                    <div style={{ padding: 20 }}>
+                        <form onSubmit={editingCategory ? handleUpdate : handleCreate}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                                        Nama Kategori <span style={{ color: '#ef4444' }}>*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.name}
+                                        onChange={(e) => setData('name', e.target.value)}
+                                        placeholder="Nama kategori"
+                                        style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                                        required
+                                    />
+                                    {errors.name && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{errors.name}</p>}
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Icon</label>
+                                    <select
+                                        value={data.icon}
+                                        onChange={(e) => setData('icon', e.target.value)}
+                                        style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer' }}
+                                    >
+                                        <option value="">Pilih Icon</option>
+                                        {iconOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Deskripsi</label>
+                                <textarea
+                                    value={data.description}
+                                    onChange={(e) => setData('description', e.target.value)}
+                                    placeholder="Deskripsi kategori"
+                                    rows={3}
+                                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={data.is_active}
+                                            onChange={(e) => setData('is_active', e.target.checked)}
+                                        />
+                                        Aktif
+                                    </label>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Urutan</label>
+                                        <input
+                                            type="number"
+                                            value={data.sort_order}
+                                            onChange={(e) => setData('sort_order', parseInt(e.target.value) || 0)}
+                                            style={{ width: 80, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none' }}
+                                            min="0"
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <button
+                                        type="button"
+                                        onClick={cancelEdit}
+                                        style={{ padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        style={{ padding: '9px 18px', background: BLUE, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: processing ? 0.6 : 1 }}
+                                    >
+                                        {processing ? 'Menyimpan...' : editingCategory ? 'Update' : 'Simpan'}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Categories Table */}
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>
+                        Daftar Kategori
+                    </h2>
+                    <span style={{ fontSize: 13, color: '#9ca3af' }}>{categories.data.length} kategori</span>
                 </div>
 
-                {/* Create/Edit Form */}
-                {(showCreateForm || editingCategory) && (
-                    <div className="bg-white rounded-lg shadow mb-6">
-                        <div className="p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">
-                                {editingCategory
-                                    ? "Edit Kategori"
-                                    : "Tambah Kategori"}
-                            </h3>
-
-                            <form
-                                onSubmit={
-                                    editingCategory
-                                        ? handleUpdate
-                                        : handleCreate
-                                }
-                            >
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Nama Kategori{" "}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={data.name}
-                                            onChange={(e) =>
-                                                setData("name", e.target.value)
-                                            }
-                                            placeholder="Nama kategori"
-                                            className="block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                            required
-                                        />
-                                        {errors.name && (
-                                            <p className="mt-1 text-sm text-red-600">
-                                                {errors.name}
+                {categories.data.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+                        Belum ada kategori.{' '}
+                        <button onClick={() => setShowCreateForm(true)} style={{ color: BLUE, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                            Tambah sekarang
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#f8faff' }}>
+                                    {['', 'Kategori', 'Deskripsi', 'Produk', 'Status', 'Urutan', 'Aksi'].map((h, i) => (
+                                        <th key={i} style={{
+                                            padding: '11px 18px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                                            textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                        }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {categories.data.map((category, idx) => (
+                                    <tr key={category.id}
+                                        style={{ borderTop: '1px solid #f0f2f8', background: idx % 2 === 0 ? '#fff' : '#fafbff' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafbff'}
+                                    >
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <Bars3Icon style={{ width: 15, height: 15, color: '#d1d5db', cursor: 'move' }} />
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                {category.icon && (
+                                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <span style={{ fontSize: 16 }}>
+                                                            {iconOptions.find(o => o.value === category.icon)?.label?.split(' ')[0] || '📁'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{category.name}</p>
+                                                    <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{category.slug}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '14px 18px', maxWidth: 220 }}>
+                                            <p style={{ fontSize: 12, color: '#6b7280', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {category.description || '-'}
                                             </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Icon
-                                        </label>
-                                        <select
-                                            value={data.icon}
-                                            onChange={(e) =>
-                                                setData("icon", e.target.value)
-                                            }
-                                            className="block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                        >
-                                            <option value="">Pilih Icon</option>
-                                            {iconOptions.map((option) => (
-                                                <option
-                                                    key={option.value}
-                                                    value={option.value}
-                                                >
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Deskripsi
-                                    </label>
-                                    <textarea
-                                        value={data.description}
-                                        onChange={(e) =>
-                                            setData(
-                                                "description",
-                                                e.target.value
-                                            )
-                                        }
-                                        placeholder="Deskripsi kategori"
-                                        rows={3}
-                                        className="block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={data.is_active}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "is_active",
-                                                        e.target.checked
-                                                    )
-                                                }
-                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                            />
-                                            <label className="ml-2 text-sm text-gray-700">
-                                                Aktif
-                                            </label>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Urutan
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={data.sort_order}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "sort_order",
-                                                        parseInt(
-                                                            e.target.value
-                                                        ) || 0
-                                                    )
-                                                }
-                                                className="block w-20 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                                min="0"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center space-x-3">
-                                        <button
-                                            type="button"
-                                            onClick={cancelEdit}
-                                            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                                        >
-                                            Batal
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
-                                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-                                        >
-                                            {processing
-                                                ? "Menyimpan..."
-                                                : editingCategory
-                                                ? "Update"
-                                                : "Simpan"}
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <span style={{ fontSize: 13, color: '#374151' }}>{category.products_count || 0} produk</span>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <button
+                                                onClick={() => toggleStatus(category)}
+                                                style={{
+                                                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                                                    background: category.is_active ? '#dcfce7' : '#fee2e2',
+                                                    color: category.is_active ? '#166534' : '#b91c1c',
+                                                }}
+                                            >
+                                                {category.is_active ? 'Aktif' : 'Tidak Aktif'}
+                                            </button>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <span style={{ fontSize: 13, color: '#9ca3af' }}>{category.sort_order}</span>
+                                        </td>
+                                        <td style={{ padding: '14px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <Link href={route('admin.categories.show', category.id)}
+                                                    style={{ color: '#9ca3af', textDecoration: 'none', display: 'flex' }}>
+                                                    <EyeIcon style={{ width: 15, height: 15 }} />
+                                                </Link>
+                                                <button onClick={() => handleEdit(category)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                                                    <PencilIcon style={{ width: 15, height: 15 }} />
+                                                </button>
+                                                <button onClick={() => handleDelete(category)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                                                    <TrashIcon style={{ width: 15, height: 15 }} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
 
-                {/* Categories List */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-                        <h3 className="text-lg font-medium leading-6 text-gray-900">
-                            Daftar Kategori ({categories.data.length})
-                        </h3>
+                {/* Pagination */}
+                {categories.links && categories.links.length > 3 && (
+                    <div style={{ padding: '12px 20px', borderTop: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, color: '#6b7280' }}>
+                            Menampilkan {categories.from || 0}–{categories.to || 0} dari {categories.total} kategori
+                        </span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            {categories.links.map((link, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => link.url && router.visit(link.url)}
+                                    disabled={!link.url}
+                                    style={{
+                                        padding: '5px 10px', fontSize: 12, borderRadius: 8, border: 'none', cursor: link.url ? 'pointer' : 'not-allowed',
+                                        background: link.active ? BLUE : '#f3f4f6',
+                                        color: link.active ? '#fff' : link.url ? '#374151' : '#d1d5db',
+                                        fontWeight: link.active ? 700 : 400,
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: link.label }}
+                                />
+                            ))}
+                        </div>
                     </div>
-
-                    {categories.data.length === 0 ? (
-                        <div className="text-center py-12">
-                            <div className="text-gray-400 text-lg mb-4">
-                                Belum ada kategori
-                            </div>
-                            <button
-                                onClick={() => setShowCreateForm(true)}
-                                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
-                            >
-                                <PlusIcon className="h-5 w-5 mr-2" />
-                                Tambah Kategori Pertama
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            <Bars3Icon className="h-4 w-4" />
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Kategori
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Deskripsi
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Produk
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Urutan
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Aksi
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {categories.data.map((category) => (
-                                        <tr
-                                            key={category.id}
-                                            className="hover:bg-gray-50"
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <Bars3Icon className="h-4 w-4 text-gray-400 cursor-move" />
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    {category.icon && (
-                                                        <div className="flex-shrink-0 h-8 w-8 mr-3">
-                                                            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                                <span className="text-sm text-indigo-600">
-                                                                    {iconOptions
-                                                                        .find(
-                                                                            (
-                                                                                opt
-                                                                            ) =>
-                                                                                opt.value ===
-                                                                                category.icon
-                                                                        )
-                                                                        ?.label?.split(
-                                                                            " "
-                                                                        )[0] ||
-                                                                        "📁"}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {category.name}
-                                                        </div>
-                                                        <div className="text-sm text-gray-500">
-                                                            {category.slug}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm text-gray-900 max-w-xs truncate">
-                                                    {category.description ||
-                                                        "-"}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {category.products_count || 0}{" "}
-                                                produk
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <button
-                                                    onClick={() =>
-                                                        toggleStatus(category)
-                                                    }
-                                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                        category.is_active
-                                                            ? "bg-green-100 text-green-800"
-                                                            : "bg-red-100 text-red-800"
-                                                    }`}
-                                                >
-                                                    {category.is_active ? (
-                                                        <>
-                                                            <EyeIcon className="h-3 w-3 mr-1" />
-                                                            Aktif
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <EyeSlashIcon className="h-3 w-3 mr-1" />
-                                                            Tidak Aktif
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {category.sort_order}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <div className="flex items-center space-x-2">
-                                                    <Link
-                                                        href={route(
-                                                            "admin.categories.show",
-                                                            category.id
-                                                        )}
-                                                        className="text-indigo-600 hover:text-indigo-900"
-                                                        title="Lihat Detail"
-                                                    >
-                                                        <EyeIcon className="h-4 w-4" />
-                                                    </Link>
-                                                    <button
-                                                        onClick={() =>
-                                                            handleEdit(category)
-                                                        }
-                                                        className="text-indigo-600 hover:text-indigo-900"
-                                                        title="Edit"
-                                                    >
-                                                        <PencilIcon className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                category
-                                                            )
-                                                        }
-                                                        className="text-red-600 hover:text-red-900"
-                                                        title="Hapus"
-                                                    >
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {/* Pagination */}
-                    {categories.links && categories.links.length > 3 && (
-                        <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-500">
-                                    Menampilkan {categories.from || 0} -{" "}
-                                    {categories.to || 0} dari {categories.total}{" "}
-                                    kategori
-                                </div>
-
-                                <div className="flex items-center space-x-1">
-                                    {categories.links.map((link, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() =>
-                                                link.url &&
-                                                router.visit(link.url)
-                                            }
-                                            disabled={!link.url}
-                                            className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                                                link.active
-                                                    ? "bg-indigo-600 text-white"
-                                                    : link.url
-                                                    ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                                                    : "text-gray-300 cursor-not-allowed"
-                                            }`}
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
         </AdminLayout>
     );

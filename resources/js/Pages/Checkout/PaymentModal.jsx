@@ -11,8 +11,6 @@ export default function PaymentModal({
 }) {
     if (!isOpen) return null;
 
-    console.log('PaymentModal props:', { paymentMethod, paymentSettings });
-
     // safe URL check
     const qrisUrl = paymentSettings?.qris_image || null;
 

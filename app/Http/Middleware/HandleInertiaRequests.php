@@ -46,7 +46,10 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? array_merge(
+                    $request->user()->toArray(),
+                    ['roles' => $request->user()->getRoleNames()]
+                ) : null,
             ],
             'cart' => session()->get('cart', []),
             'pendingOrder' => $pendingOrder,

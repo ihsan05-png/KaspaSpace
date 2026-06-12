@@ -26,7 +26,7 @@ class DashboardController extends Controller
         $activeProducts = Product::count();
         
         // Recent orders untuk aktivitas terbaru
-        $recentOrders = Order::with(['items.product', 'items.productVariant'])
+        $recentOrders = Order::select('id','order_number','customer_name','customer_email','total','payment_status','status','created_at','paid_at')
             ->latest()
             ->take(5)
             ->get()
@@ -35,6 +35,7 @@ class DashboardController extends Controller
                     'id' => $order->id,
                     'order_number' => $order->order_number,
                     'customer_name' => $order->customer_name,
+                    'customer_email' => $order->customer_email,
                     'total' => (float) $order->total,
                     'payment_status' => $order->payment_status,
                     'status' => $order->status,

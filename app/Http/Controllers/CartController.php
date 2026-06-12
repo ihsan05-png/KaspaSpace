@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class CartController extends Controller
@@ -13,9 +12,9 @@ class CartController extends Controller
     public function index()
     {
         $cart = session('cart', []);
-        
+
         return Inertia::render('Cart/Index', [
-            'cart' => $cart
+            'cart' => $cart,
         ]);
     }
 
@@ -39,7 +38,6 @@ class CartController extends Controller
 
         $cart = session('cart', []);
 
-
         if ($validated['variant_id']) {
             $variant = ProductVariant::find($validated['variant_id']);
             $product = Product::find($validated['product_id']);
@@ -48,13 +46,13 @@ class CartController extends Controller
             // checked via BookingAvailabilityController. Skip global stock_quantity check.
             $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office']);
 
-            if (!$isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
+            if (! $isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
                 return back()->withErrors(['stock' => 'Stok tidak mencukupi']);
             }
         }
 
         // Validate booking time for coworking products (hourly booking only)
-        if (!empty($validated['booking_date']) && !empty($validated['booking_start_time'])) {
+        if (! empty($validated['booking_date']) && ! empty($validated['booking_start_time'])) {
             $product = Product::find($validated['product_id']);
 
             // Skip time validation for private_office (date-only booking)
@@ -64,9 +62,9 @@ class CartController extends Controller
 
                 // Gunakan close_time dari produk, fallback 17:00
                 $closeTimeParts = explode(':', $product->close_time ?? '17:00');
-                $closeMinutes   = ((int) $closeTimeParts[0]) * 60 + ((int) ($closeTimeParts[1] ?? 0));
-                $openTimeParts  = explode(':', $product->open_time ?? '08:00');
-                $openMinutes    = ((int) $openTimeParts[0]) * 60 + ((int) ($openTimeParts[1] ?? 0));
+                $closeMinutes = ((int) $closeTimeParts[0]) * 60 + ((int) ($closeTimeParts[1] ?? 0));
+                $openTimeParts = explode(':', $product->open_time ?? '08:00');
+                $openMinutes = ((int) $openTimeParts[0]) * 60 + ((int) ($openTimeParts[1] ?? 0));
 
                 $timeParts = explode(':', $validated['booking_start_time']);
                 $startMinutes = ((int) $timeParts[0]) * 60 + ((int) ($timeParts[1] ?? 0));
@@ -74,19 +72,31 @@ class CartController extends Controller
 
                 if ($endMinutes > $closeMinutes) {
                     $closeLabel = $product->close_time ?? '17:00';
+
                     return back()->withErrors(['booking' => "Booking melebihi jam operasional ({$closeLabel})"]);
                 }
 
                 if ($startMinutes < $openMinutes) {
                     $openLabel = $product->open_time ?? '08:00';
+
                     return back()->withErrors(['booking' => "Jam operasional dimulai dari {$openLabel}"]);
                 }
 
                 // Reject past times for today
-                $bookingStart = \Carbon\Carbon::parse($validated['booking_date'] . ' ' . $validated['booking_start_time']);
+                $bookingStart = \Carbon\Carbon::parse($validated['booking_date'].' '.$validated['booking_start_time']);
                 if ($bookingStart->lt(now())) {
                     return back()->withErrors(['booking' => 'Jam yang dipilih sudah lewat. Silakan pilih jam yang akan datang.']);
                 }
+            }
+        }
+
+        // Ambil gambar pertama produk untuk ditampilkan di ringkasan checkout
+        $productImage = null;
+        $product = Product::find($validated['product_id']);
+        if ($product && ! empty($product->images)) {
+            $images = is_array($product->images) ? $product->images : json_decode($product->images, true);
+            if (! empty($images[0])) {
+                $productImage = str_starts_with($images[0], 'http') ? $images[0] : '/storage/'.$images[0];
             }
         }
 
@@ -95,6 +105,7 @@ class CartController extends Controller
             'product_id' => $validated['product_id'],
             'product_name' => $validated['product_name'],
             'product_type' => $validated['product_type'] ?? null,
+            'product_image' => $productImage,
             'variant_id' => $validated['variant_id'] ?? null,
             'variant_name' => $validated['variant_name'] ?? null,
             'custom_options' => $validated['custom_options'] ?? [],
@@ -118,11 +129,11 @@ class CartController extends Controller
     {
         $cart = session('cart', []);
         $itemId = $request->input('id');
-        
-        $cart = array_filter($cart, function($item) use ($itemId) {
+
+        $cart = array_filter($cart, function ($item) use ($itemId) {
             return $item['id'] !== $itemId;
         });
-        
+
         session(['cart' => array_values($cart)]);
 
         return back()->with('success', 'Produk berhasil dihapus dari keranjang');
@@ -136,7 +147,7 @@ class CartController extends Controller
         ]);
 
         $cart = session('cart', []);
-        
+
         foreach ($cart as &$item) {
             if ($item['id'] === $validated['id']) {
                 // Cek stok jika variant memiliki stock management (skip untuk booking products)
@@ -145,17 +156,17 @@ class CartController extends Controller
                     $product = Product::find($item['product_id']);
                     $isBookingProduct = $product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office']);
 
-                    if (!$isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
+                    if (! $isBookingProduct && $variant->manage_stock && $variant->stock_quantity < $validated['quantity']) {
                         return back()->withErrors(['stock' => 'Stok tidak mencukupi']);
                     }
                 }
-                
+
                 $item['quantity'] = $validated['quantity'];
                 $item['subtotal'] = $item['price'] * $validated['quantity'];
                 break;
             }
         }
-        
+
         session(['cart' => $cart]);
 
         return back();

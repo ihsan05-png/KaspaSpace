@@ -11,14 +11,16 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
 
+const BLUE = '#005bbf';
+
 const StarRating = ({ rating, size = 'sm' }) => {
-    const sz = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
+    const sz = size === 'sm' ? 16 : 20;
     return (
-        <div className="flex gap-0.5">
+        <div style={{ display: 'flex', gap: 2 }}>
             {[1, 2, 3, 4, 5].map((s) =>
                 s <= rating
-                    ? <StarSolid key={s} className={`${sz} text-yellow-400`} />
-                    : <StarIcon key={s} className={`${sz} text-gray-300`} />
+                    ? <StarSolid key={s} style={{ width: sz, height: sz, color: '#facc15' }} />
+                    : <StarIcon key={s} style={{ width: sz, height: sz, color: '#d1d5db' }} />
             )}
         </div>
     );
@@ -73,41 +75,50 @@ export default function ReviewsIndex({ reviews, filters }) {
         <AdminLayout>
             <Head title="Kelola Ulasan" />
 
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Kelola Ulasan</h1>
-                    <p className="text-gray-500 mt-1">Moderasi, balas, dan hapus ulasan pelanggan.</p>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}>
+                    Kelola Ulasan
+                </h1>
+                <p style={{ fontSize: 14, color: '#6b7280', marginTop: 6 }}>
+                    Moderasi, balas, dan hapus ulasan pelanggan.
+                </p>
+            </div>
+
+            {/* Flash message */}
+            {flash?.success && (
+                <div style={{ marginBottom: 16, padding: '10px 16px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 10, color: '#166534', fontSize: 13, fontWeight: 600 }}>
+                    {flash.success}
                 </div>
+            )}
 
-                {/* Flash message */}
-                {flash?.success && (
-                    <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                        {flash.success}
-                    </div>
-                )}
-
-                {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex flex-wrap gap-3 items-end">
-                    <div className="flex-1 min-w-48">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Cari</label>
-                        <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {/* Filters */}
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', marginBottom: 20, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f2f8', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cari</label>
+                        <div style={{ position: 'relative' }}>
+                            <MagnifyingGlassIcon style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#9ca3af' }} />
                             <input
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder="Nama, produk, komentar..."
-                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                style={{
+                                    width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 9, paddingBottom: 9,
+                                    border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151',
+                                    outline: 'none', boxSizing: 'border-box',
+                                }}
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Rating</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Rating</label>
                         <select
                             value={ratingFilter}
                             onChange={(e) => setRatingFilter(e.target.value)}
-                            className="border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500"
+                            style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
                         >
                             <option value="">Semua</option>
                             {[5, 4, 3, 2, 1].map((r) => (
@@ -116,11 +127,11 @@ export default function ReviewsIndex({ reviews, filters }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Status</label>
                         <select
                             value={approvedFilter}
                             onChange={(e) => setApprovedFilter(e.target.value)}
-                            className="border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500"
+                            style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
                         >
                             <option value="">Semua</option>
                             <option value="1">Ditampilkan</option>
@@ -129,140 +140,159 @@ export default function ReviewsIndex({ reviews, filters }) {
                     </div>
                     <button
                         onClick={applyFilters}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition"
+                        style={{ padding: '9px 18px', background: BLUE, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                     >
                         Filter
                     </button>
                 </div>
+            </div>
 
-                {/* Reviews list */}
-                {reviews.data.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                        <StarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">Belum ada ulasan.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {reviews.data.map((review) => (
-                            <div
-                                key={review.id}
-                                className={`bg-white rounded-xl shadow-sm border p-5 ${
-                                    review.is_approved ? 'border-gray-200' : 'border-orange-200 bg-orange-50'
-                                }`}
-                            >
-                                {/* Header */}
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 flex-wrap">
-                                            <span className="font-semibold text-gray-900">{review.user?.name}</span>
-                                            <StarRating rating={review.rating} />
-                                            <span className="text-xs text-gray-400">{review.created_at}</span>
-                                            {!review.is_approved && (
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                                                    Disembunyikan
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-indigo-600 mt-0.5">
-                                            Produk: <a href={`/product/${review.product?.slug}`} target="_blank" className="hover:underline">{review.product?.title}</a>
-                                        </p>
+            {/* Reviews list */}
+            {reviews.data.length === 0 ? (
+                <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', padding: '48px 20px', textAlign: 'center' }}>
+                    <StarIcon style={{ width: 48, height: 48, color: '#d1d5db', margin: '0 auto 12px' }} />
+                    <p style={{ color: '#9ca3af', fontSize: 14 }}>Belum ada ulasan.</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {reviews.data.map((review) => (
+                        <div key={review.id} style={{
+                            background: review.is_approved ? '#fff' : '#fff7ed',
+                            borderRadius: 14,
+                            boxShadow: '0 1px 6px rgba(26,46,90,0.07)',
+                            border: `1px solid ${review.is_approved ? '#f0f2f8' : '#fed7aa'}`,
+                            padding: '18px 20px',
+                        }}>
+                            {/* Header */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{review.user?.name}</span>
+                                        <StarRating rating={review.rating} />
+                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{review.created_at}</span>
+                                        {!review.is_approved && (
+                                            <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#fed7aa', color: '#c2410c' }}>
+                                                Disembunyikan
+                                            </span>
+                                        )}
                                     </div>
+                                    <p style={{ fontSize: 12, color: BLUE, marginTop: 4 }}>
+                                        Produk:{' '}
+                                        <a href={`/product/${review.product?.slug}`} target="_blank" style={{ color: BLUE, textDecoration: 'none', fontWeight: 600 }}>
+                                            {review.product?.title}
+                                        </a>
+                                    </p>
+                                </div>
 
-                                    {/* Action buttons */}
-                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                {/* Action buttons */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                    <button
+                                        onClick={() => handleToggleApprove(review.id)}
+                                        title={review.is_approved ? 'Sembunyikan' : 'Tampilkan'}
+                                        style={{
+                                            padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer',
+                                            background: 'none', color: review.is_approved ? '#16a34a' : '#9ca3af',
+                                        }}
+                                    >
+                                        {review.is_approved
+                                            ? <CheckCircleIcon style={{ width: 20, height: 20 }} />
+                                            : <XCircleIcon style={{ width: 20, height: 20 }} />
+                                        }
+                                    </button>
+                                    <button
+                                        onClick={() => handleReply(review)}
+                                        title="Balas"
+                                        style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'none', color: BLUE }}
+                                    >
+                                        <ChatBubbleLeftEllipsisIcon style={{ width: 20, height: 20 }} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(review.id)}
+                                        title="Hapus"
+                                        style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'none', color: '#ef4444' }}
+                                    >
+                                        <TrashIcon style={{ width: 20, height: 20 }} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Comment */}
+                            <p style={{ marginTop: 10, fontSize: 13, color: '#374151' }}>{review.comment}</p>
+
+                            {/* Admin reply display */}
+                            {review.admin_reply && replyingId !== review.id && (
+                                <div style={{
+                                    marginTop: 10, marginLeft: 16, paddingLeft: 14, paddingRight: 14, paddingTop: 10, paddingBottom: 10,
+                                    borderLeft: '2px solid #bfdbfe', background: '#eff6ff', borderRadius: '0 8px 8px 0',
+                                }}>
+                                    <p style={{ fontSize: 11, fontWeight: 700, color: BLUE, marginBottom: 4 }}>Balasan Admin</p>
+                                    <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{review.admin_reply}</p>
+                                </div>
+                            )}
+
+                            {/* Reply form */}
+                            {replyingId === review.id && (
+                                <div style={{ marginTop: 10, marginLeft: 16, paddingLeft: 14, borderLeft: '2px solid #bfdbfe' }}>
+                                    <textarea
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        rows={3}
+                                        placeholder="Tulis balasan admin..."
+                                        style={{
+                                            width: '100%', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13,
+                                            padding: 12, outline: 'none', boxSizing: 'border-box', resize: 'vertical', color: '#374151',
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                                         <button
-                                            onClick={() => handleToggleApprove(review.id)}
-                                            title={review.is_approved ? 'Sembunyikan' : 'Tampilkan'}
-                                            className={`p-1.5 rounded-lg transition ${
-                                                review.is_approved
-                                                    ? 'text-green-600 hover:bg-green-50'
-                                                    : 'text-gray-400 hover:bg-gray-100'
-                                            }`}
+                                            onClick={() => submitReply(review.id)}
+                                            disabled={!replyText.trim()}
+                                            style={{
+                                                padding: '7px 16px', background: BLUE, color: '#fff', border: 'none',
+                                                borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                                cursor: replyText.trim() ? 'pointer' : 'not-allowed',
+                                                opacity: replyText.trim() ? 1 : 0.5,
+                                            }}
                                         >
-                                            {review.is_approved
-                                                ? <CheckCircleIcon className="w-5 h-5" />
-                                                : <XCircleIcon className="w-5 h-5" />
-                                            }
+                                            Simpan Balasan
                                         </button>
                                         <button
-                                            onClick={() => handleReply(review)}
-                                            title="Balas"
-                                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition"
+                                            onClick={() => setReplyingId(null)}
+                                            style={{
+                                                padding: '7px 16px', background: 'none', color: '#6b7280',
+                                                border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                            }}
                                         >
-                                            <ChatBubbleLeftEllipsisIcon className="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(review.id)}
-                                            title="Hapus"
-                                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
-                                        >
-                                            <TrashIcon className="w-5 h-5" />
+                                            Batal
                                         </button>
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
 
-                                {/* Comment */}
-                                <p className="mt-3 text-gray-700 text-sm">{review.comment}</p>
-
-                                {/* Admin reply display */}
-                                {review.admin_reply && replyingId !== review.id && (
-                                    <div className="mt-3 ml-4 pl-4 border-l-2 border-indigo-300 bg-indigo-50 rounded-r-lg py-2 px-3">
-                                        <p className="text-xs font-semibold text-indigo-700 mb-1">Balasan Admin</p>
-                                        <p className="text-sm text-gray-700">{review.admin_reply}</p>
-                                    </div>
-                                )}
-
-                                {/* Reply form */}
-                                {replyingId === review.id && (
-                                    <div className="mt-3 ml-4 pl-4 border-l-2 border-indigo-300">
-                                        <textarea
-                                            value={replyText}
-                                            onChange={(e) => setReplyText(e.target.value)}
-                                            rows={3}
-                                            placeholder="Tulis balasan admin..."
-                                            className="w-full border border-gray-300 rounded-lg text-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        />
-                                        <div className="flex gap-2 mt-2">
-                                            <button
-                                                onClick={() => submitReply(review.id)}
-                                                disabled={!replyText.trim()}
-                                                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
-                                            >
-                                                Simpan Balasan
-                                            </button>
-                                            <button
-                                                onClick={() => setReplyingId(null)}
-                                                className="px-3 py-1.5 text-gray-600 text-sm rounded-lg hover:bg-gray-100 transition"
-                                            >
-                                                Batal
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Pagination */}
-                {reviews.last_page > 1 && (
-                    <div className="mt-6 flex justify-center gap-2">
-                        {reviews.links.map((link, i) => (
-                            <button
-                                key={i}
-                                disabled={!link.url}
-                                onClick={() => link.url && router.get(link.url, {}, { preserveState: true })}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                                className={`px-3 py-1.5 text-sm rounded-lg border transition ${
-                                    link.active
-                                        ? 'bg-indigo-600 text-white border-indigo-600'
-                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 disabled:opacity-40'
-                                }`}
-                            />
-                        ))}
-                    </div>
-                )}
-            </div>
+            {/* Pagination */}
+            {reviews.last_page > 1 && (
+                <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center', gap: 6 }}>
+                    {reviews.links.map((link, i) => (
+                        <button
+                            key={i}
+                            disabled={!link.url}
+                            onClick={() => link.url && router.get(link.url, {}, { preserveState: true })}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                            style={{
+                                padding: '6px 12px', fontSize: 12, borderRadius: 8, border: 'none',
+                                cursor: link.url ? 'pointer' : 'not-allowed',
+                                background: link.active ? BLUE : '#f3f4f6',
+                                color: link.active ? '#fff' : link.url ? '#374151' : '#d1d5db',
+                                fontWeight: link.active ? 700 : 400,
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
         </AdminLayout>
     );
 }

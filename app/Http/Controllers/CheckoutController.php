@@ -2,373 +2,481 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Agreement;
+use App\Models\BookingHold;
+use App\Models\Discount;
+use App\Models\NewsletterSubscriber;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Discount;
 use App\Models\PaymentSetting;
-use App\Models\NewsletterSubscriber;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
-use App\Models\Agreement;
+use Inertia\Inertia;
 
 class CheckoutController extends Controller
 {
-   public function index()
-{
-    $cart = session('cart', []);
+    public function index()
+    {
+        $cart = session('cart', []);
 
-    if (empty($cart)) {
-        return redirect('/');
+        if (empty($cart)) {
+            return redirect('/');
+        }
+
+        // Isi product_image jika belum ada (item lama di session)
+        $productIds = array_unique(array_column($cart, 'product_id'));
+        $products = \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
+        $cart = array_map(function ($item) use ($products) {
+            if (empty($item['product_image']) && isset($products[$item['product_id']])) {
+                $imgs = $products[$item['product_id']]->images;
+                $imgs = is_array($imgs) ? $imgs : json_decode($imgs, true);
+                if (! empty($imgs[0])) {
+                    $item['product_image'] = str_starts_with($imgs[0], 'http') ? $imgs[0] : '/storage/'.$imgs[0];
+                }
+            }
+
+            return $item;
+        }, $cart);
+
+        $subtotal = array_sum(array_column($cart, 'subtotal'));
+
+        // Get payment settings (QRIS, bank, PPN)
+        $paymentSetting = PaymentSetting::first();
+        $paymentSettings = null;
+
+        if ($paymentSetting) {
+            $paymentSettings = [
+                'qris_image' => $paymentSetting->qris_image ? Storage::url($paymentSetting->qris_image) : null,
+                'bank_name' => $paymentSetting->bank_name,
+                'account_number' => $paymentSetting->account_number,
+                'account_name' => $paymentSetting->account_name,
+            ];
+        }
+
+        $ppnEnabled = $paymentSetting ? (bool) $paymentSetting->ppn_enabled : true;
+        $ppnRate = $paymentSetting ? (int) $paymentSetting->ppn_rate : 11;
+
+        return Inertia::render('Checkout/Index', [
+            'cart' => $cart,
+            'subtotal' => $subtotal,
+            'ppnEnabled' => $ppnEnabled,
+            'ppnRate' => $ppnRate,
+            'user' => auth()->user() ? [
+                'name' => auth()->user()->name,
+                'email' => auth()->user()->email,
+                'phone' => auth()->user()->phone,
+                'agreed_terms' => (bool) auth()->user()->agreed_terms,
+                'agreed_privacy' => (bool) auth()->user()->agreed_privacy,
+                'agreed_newsletter' => (bool) auth()->user()->agreed_newsletter,
+            ] : null,
+            'paymentSettings' => $paymentSettings,
+            'termsAgreement' => Agreement::getTerms(),
+            'privacyAgreement' => Agreement::getPrivacy(),
+        ]);
     }
-
-    $subtotal = array_sum(array_column($cart, 'subtotal'));
-
-    // Get payment settings for QRIS and Bank Transfer
-    $paymentSetting = PaymentSetting::first();
-    $paymentSettings = null;
-
-    if ($paymentSetting) {
-        $paymentSettings = [
-            'qris_image' => $paymentSetting->qris_image ? Storage::url($paymentSetting->qris_image) : null,
-            'bank_name' => $paymentSetting->bank_name,
-            'account_number' => $paymentSetting->account_number,
-            'account_name' => $paymentSetting->account_name,
-        ];
-    }
-
-    return Inertia::render('Checkout/Index', [
-        'cart' => $cart,
-        'subtotal' => $subtotal,
-        'tax' => 0,
-        'total' => $subtotal,
-        'user' => auth()->user() ? [
-            'name' => auth()->user()->name,
-            'email' => auth()->user()->email,
-            'phone' => auth()->user()->phone,
-            'agreed_terms' => (bool) auth()->user()->agreed_terms,
-            'agreed_privacy' => (bool) auth()->user()->agreed_privacy,
-            'agreed_newsletter' => (bool) auth()->user()->agreed_newsletter,
-        ] : null,
-        'paymentSettings' => $paymentSettings,
-        'termsAgreement' => Agreement::getTerms(),
-        'privacyAgreement' => Agreement::getPrivacy(),
-    ]);
-}
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'customer_name' => 'required|string|max:255',
-        'customer_email' => 'required|email|max:255',
-        'customer_phone' => 'required|string|max:20',
-        'notes' => 'nullable|string|max:1000',
-        'payment_method' => 'required|in:midtrans,cash,qris,bank_transfer',
-        'discount_code' => 'nullable|string|max:50',
-        'agreed_newsletter' => 'nullable|boolean',
-        'needs_agreement' => 'nullable|boolean',
-    ]);
-
-    $cart = session('cart', []);
-    
-    if (empty($cart)) {
-        return back()->withErrors(['cart' => 'Keranjang kosong']);
-    }
-
-    $subtotal = array_sum(array_column($cart, 'subtotal'));
-    
-    // Validasi dan hitung diskon
-    $discount = null;
-    $discountAmount = 0;
-    
-    if (!empty($validated['discount_code'])) {
-        $discount = Discount::where('code', $validated['discount_code'])->first();
-        
-        if ($discount && $discount->isValid($subtotal)) {
-            // Cek apakah user sudah pernah menggunakan diskon ini (per email)
-            if ($discount->hasBeenUsedByEmail($validated['customer_email'])) {
-                return back()->withErrors(['discount_code' => 'Kode diskon ini sudah pernah digunakan oleh akun Anda']);
-            }
-
-            // Load produk yang dipilih untuk diskon
-            $discount->load('products');
-
-            // Hitung subtotal yang eligible untuk diskon
-            $applicableSubtotal = $subtotal; // default: semua item
-            if ($discount->products->count() > 0) {
-                $discountProductIds = $discount->products->pluck('id')->toArray();
-
-                $applicableSubtotal = 0;
-                foreach ($cart as $item) {
-                    if (in_array($item['product_id'], $discountProductIds)) {
-                        $applicableSubtotal += $item['subtotal'];
-                    }
-                }
-
-                if ($applicableSubtotal <= 0) {
-                    return back()->withErrors(['discount_code' => 'Diskon ini tidak berlaku untuk produk di keranjang Anda']);
-                }
-            }
-
-            $discountAmount = $discount->calculateDiscount($applicableSubtotal);
-        } else {
-            return back()->withErrors(['discount_code' => 'Kode diskon tidak valid']);
-        }
-    }
-    
-    $total = $subtotal - $discountAmount;
-
-    try {
-        DB::beginTransaction();
-
-        $order = Order::create([
-            'customer_name' => $validated['customer_name'],
-            'customer_email' => $validated['customer_email'],
-            'customer_phone' => $validated['customer_phone'],
-            'notes' => $validated['notes'] ?? null,
-            'payment_method' => $validated['payment_method'],
-            'payment_status' => 'unpaid',
-            'subtotal' => $subtotal,
-            'discount_id' => $discount ? $discount->id : null,
-            'discount_code' => $discount ? $discount->code : null,
-            'discount_amount' => $discountAmount,
-            'total' => $total,
-            'status' => 'pending',
+    {
+        $validated = $request->validate([
+            'customer_name'        => 'required|string|max:255',
+            'customer_email'       => 'required|email|max:255',
+            'customer_phone'       => 'required|string|max:20',
+            'notes'                => 'nullable|string|max:1000',
+            'payment_method'       => 'required|in:midtrans,cash,qris,bank_transfer',
+            'discount_code'        => 'nullable|string|max:50',
+            'agreed_newsletter'    => 'nullable|boolean',
+            'needs_agreement'      => 'nullable|boolean',
+            'doc_ktp'              => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'doc_npwp'             => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'doc_business_license' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'doc_company_name'     => 'nullable|string|max:255',
+            'doc_pic_name'         => 'nullable|string|max:255',
+            'doc_pic_phone'        => 'nullable|string|max:20',
         ]);
 
+        $cart = session('cart', []);
+
+        if (empty($cart)) {
+            return back()->withErrors(['cart' => 'Keranjang kosong']);
+        }
+
+        // ── PRE-CHECK: Tolak cepat jika ada hold aktif dari user lain ──
         foreach ($cart as $item) {
-            $orderItemData = [
-                'order_id' => $order->id,
-                'product_id' => $item['product_id'],
-                'variant_id' => $item['variant_id'] ?? null,
-                'room_id' => $item['room_id'] ?? null,
-                'unit_index' => isset($item['unit_index']) ? (int) $item['unit_index'] : null,
-                'product_name' => $item['product_name'],
-                'variant_name' => $item['variant_name'] ?? null,
-                'custom_options' => $item['custom_options'] ?? [],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'subtotal' => $item['subtotal'],
-            ];
+            if (empty($item['booking_date']) || empty($item['booking_start_time'])) {
+                continue;
+            }
 
-            // Set booking timestamps for coworking products
-            if (!empty($item['booking_date']) && !empty($item['booking_start_time'])) {
-                $variant = \App\Models\ProductVariant::find($item['variant_id']);
-                $durationHours = $variant ? ($variant->duration_hours ?? 1) : 1;
-                $product = \App\Models\Product::find($item['product_id']);
+            $product = \App\Models\Product::find($item['product_id']);
+            if (! $product || ! in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office'])) {
+                continue;
+            }
 
-                $startAt = Carbon::parse($item['booking_date'] . ' ' . $item['booking_start_time']);
+            $variant = \App\Models\ProductVariant::find($item['variant_id'] ?? null);
+            $durationHours = $variant ? ($variant->duration_hours ?? 1) : 1;
+            $startAt = Carbon::parse($item['booking_date'].' '.$item['booking_start_time']);
+            $endAt = in_array($product->product_type, ['private_office'])
+                            ? (clone $startAt)->addMonths(max(1, round($durationHours / 720)))
+                            : (clone $startAt)->addMinutes((int) ($durationHours * 60));
 
-                // Calculate end time based on product type
-                if ($product && in_array($product->product_type, ['private_office', 'virtual_office'])) {
-                    // Date-only booking: duration is in months (stored as hours, e.g., 720 = 1 month)
-                    // Convert hours to months (720 hours = 1 month approximately)
-                    $durationMonths = max(1, round($durationHours / 720));
-                    $endAt = (clone $startAt)->addMonths($durationMonths);
-                } else {
-                    // Hourly booking (share_desk, private_room, meeting_room)
-                    $endAt = (clone $startAt)->addMinutes((int) ($durationHours * 60));
+            $roomId = $item['room_id'] ?? null;
+
+            if ($product->product_type === 'share_desk') {
+                // Share desk: cek apakah hold + booked melebihi kapasitas
+                $room = $roomId ? \App\Models\Room::find($roomId) : null;
+                $capacity = $room ? (int) $room->capacity : 8;
+                $held = BookingHold::heldQuantity($product->id, $roomId, $item['booking_date'], $startAt, $endAt);
+                if ($held + $item['quantity'] > $capacity) {
+                    return back()->withErrors(['booking' => 'Maaf, meja di '.($room->name ?? 'ruangan ini').' baru saja dipesan orang lain dan sedang menunggu pembayaran. Silakan pilih waktu lain.']);
+                }
+            } else {
+                // Exclusive booking: tolak jika ada hold aktif
+                if (BookingHold::hasActiveConflict($product->id, $roomId, $item['booking_date'], $startAt, $endAt)) {
+                    return back()->withErrors(['booking' => 'Maaf, ruangan ini baru saja dipesan orang lain dan sedang menunggu pembayaran. Silakan coba beberapa menit lagi atau pilih waktu lain.']);
+                }
+            }
+        }
+
+        $subtotal = array_sum(array_column($cart, 'subtotal'));
+
+        // Validasi dan hitung diskon
+        $discount = null;
+        $discountAmount = 0;
+
+        if (! empty($validated['discount_code'])) {
+            $discount = Discount::where('code', $validated['discount_code'])->first();
+
+            if ($discount && $discount->isValid($subtotal)) {
+                // Cek apakah user sudah pernah menggunakan diskon ini (per email)
+                if ($discount->hasBeenUsedByEmail($validated['customer_email'])) {
+                    return back()->withErrors(['discount_code' => 'Kode diskon ini sudah pernah digunakan oleh akun Anda']);
                 }
 
-                $orderItemData['booking_start_at'] = $startAt;
-                $orderItemData['booking_end_at'] = $endAt;
+                // Load produk yang dipilih untuk diskon
+                $discount->load('products');
 
-                // Re-validate availability inside transaction to prevent double booking
-                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
-                    if (in_array($product->product_type, ['private_office', 'virtual_office'])) {
-                        // Validate date-only booking (private_office, virtual_office)
-                        $roomId    = $item['room_id'] ?? null;
-                        $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
-                        $room      = $roomId ? \App\Models\Room::find($roomId) : null;
+                // Hitung subtotal yang eligible untuk diskon
+                $applicableSubtotal = $subtotal; // default: semua item
+                if ($discount->products->count() > 0) {
+                    $discountProductIds = $discount->products->pluck('id')->toArray();
 
-                        if ($room) {
-                            // Room-based + per-unit validation (sama seperti hourly exclusive)
-                            $unitCount = (int) ($room->unit_count ?? 1);
-                            $activeQ   = fn() => OrderItem::where('room_id', $roomId)
-                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                                ->where('stock_reduced', true)->where('stock_restored', false)
-                                ->where('booking_start_at', '<', $endAt)
-                                ->where('booking_end_at', '>', $startAt);
-
-                            if ($unitIndex !== null && $unitCount > 1) {
-                                $unitName  = $item['unit_name'] ?? "Unit " . ($unitIndex + 1);
-                                $unitTaken = (clone $activeQ())->where('unit_index', $unitIndex)->exists();
-                                if ($unitTaken) {
-                                    DB::rollBack();
-                                    return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk periode tersebut. Silakan pilih unit atau tanggal lain."]);
-                                }
-                            } else {
-                                $exclusiveBooked = (clone $activeQ())->count();
-                                if ($exclusiveBooked >= $unitCount) {
-                                    DB::rollBack();
-                                    return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk periode tersebut. Silakan pilih tanggal lain."]);
-                                }
-                            }
-                        } else {
-                            // Fallback global check jika tidak ada room_id
-                            $firstVariant = $product->variants()->where('is_active', true)->first();
-                            $totalSlots   = $firstVariant ? ($firstVariant->stock_quantity ?? 999) : 999;
-                            if ($product->product_type === 'private_office' && $totalSlots <= 0) $totalSlots = 6;
-
-                            $bookedSlots = OrderItem::whereHas('product', fn($q) => $q->where('product_type', $product->product_type))
-                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                                ->where('stock_reduced', true)->where('stock_restored', false)
-                                ->where('booking_start_at', '<', $endAt)
-                                ->where(fn($q) => $q->whereNull('booking_end_at')->orWhere('booking_end_at', '>', $startAt))
-                                ->sum('quantity');
-
-                            $productLabel = $product->product_type === 'private_office' ? 'Private Office' : 'Virtual Office';
-                            if (($totalSlots - $bookedSlots) < $item['quantity']) {
-                                DB::rollBack();
-                                return back()->withErrors(['booking' => "$productLabel tidak tersedia untuk tanggal {$item['booking_date']}. Silakan pilih tanggal lain."]);
-                            }
+                    $applicableSubtotal = 0;
+                    foreach ($cart as $item) {
+                        if (in_array($item['product_id'], $discountProductIds)) {
+                            $applicableSubtotal += $item['subtotal'];
                         }
-                    } else {
-                        // Validate share_desk / private_room / meeting_room - room-based jika ada room_id, fallback ke global
-                        $roomId = $item['room_id'] ?? null;
+                    }
 
-                        if ($roomId) {
-                            // Room-based availability check
-                            $room = \App\Models\Room::find($roomId);
+                    if ($applicableSubtotal <= 0) {
+                        return back()->withErrors(['discount_code' => 'Diskon ini tidak berlaku untuk produk di keranjang Anda']);
+                    }
+                }
+
+                $discountAmount = $discount->calculateDiscount($applicableSubtotal);
+            } else {
+                return back()->withErrors(['discount_code' => 'Kode diskon tidak valid']);
+            }
+        }
+
+        $setting = PaymentSetting::first();
+        $ppnEnabled = $setting ? (bool) $setting->ppn_enabled : true;
+        $ppnRate = $setting ? (int) $setting->ppn_rate : 11;
+
+        $dpp = $subtotal - $discountAmount;
+        $tax = $ppnEnabled ? (int) round($dpp * ($ppnRate / 100)) : 0;
+        $total = $dpp + $tax;
+
+        // Store uploaded documents
+        $docKtp             = $request->hasFile('doc_ktp')              ? $request->file('doc_ktp')->store('order-docs/ktp', 'public')                         : null;
+        $docNpwp            = $request->hasFile('doc_npwp')             ? $request->file('doc_npwp')->store('order-docs/npwp', 'public')                        : null;
+        $docBusinessLicense = $request->hasFile('doc_business_license') ? $request->file('doc_business_license')->store('order-docs/business-license', 'public') : null;
+
+        try {
+            DB::beginTransaction();
+
+            $order = Order::create([
+                'customer_name'        => $validated['customer_name'],
+                'customer_email'       => $validated['customer_email'],
+                'customer_phone'       => $validated['customer_phone'],
+                'notes'                => $validated['notes'] ?? null,
+                'payment_method'       => $validated['payment_method'],
+                'payment_status'       => 'unpaid',
+                'subtotal'             => $subtotal,
+                'discount_id'          => $discount ? $discount->id : null,
+                'discount_code'        => $discount ? $discount->code : null,
+                'discount_amount'      => $discountAmount,
+                'tax'                  => $tax,
+                'total'                => $total,
+                'status'               => 'pending',
+                'doc_ktp'              => $docKtp,
+                'doc_npwp'             => $docNpwp,
+                'doc_business_license' => $docBusinessLicense,
+                'doc_company_name'     => $validated['doc_company_name'] ?? null,
+                'doc_pic_name'         => $validated['doc_pic_name'] ?? null,
+                'doc_pic_phone'        => $validated['doc_pic_phone'] ?? null,
+            ]);
+
+            foreach ($cart as $item) {
+                $orderItemData = [
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'room_id' => $item['room_id'] ?? null,
+                    'unit_index' => isset($item['unit_index']) ? (int) $item['unit_index'] : null,
+                    'product_name' => $item['product_name'],
+                    'variant_name' => $item['variant_name'] ?? null,
+                    'custom_options' => $item['custom_options'] ?? [],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'subtotal' => $item['subtotal'],
+                ];
+
+                // Set booking timestamps for coworking products
+                if (! empty($item['booking_date']) && ! empty($item['booking_start_time'])) {
+                    $variant = \App\Models\ProductVariant::find($item['variant_id']);
+                    $durationHours = $variant ? ($variant->duration_hours ?? 1) : 1;
+                    $product = \App\Models\Product::find($item['product_id']);
+
+                    $startAt = Carbon::parse($item['booking_date'].' '.$item['booking_start_time']);
+
+                    // Calculate end time based on product type
+                    if ($product && in_array($product->product_type, ['private_office', 'virtual_office'])) {
+                        // Date-only booking: duration is in months (stored as hours, e.g., 720 = 1 month)
+                        // Convert hours to months (720 hours = 1 month approximately)
+                        $durationMonths = max(1, round($durationHours / 720));
+                        $endAt = (clone $startAt)->addMonths($durationMonths);
+                    } else {
+                        // Hourly booking (share_desk, private_room, meeting_room)
+                        $endAt = (clone $startAt)->addMinutes((int) ($durationHours * 60));
+                    }
+
+                    $orderItemData['booking_start_at'] = $startAt;
+                    $orderItemData['booking_end_at'] = $endAt;
+
+                    // Re-validate availability inside transaction to prevent double booking
+                    if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
+                        if (in_array($product->product_type, ['private_office', 'virtual_office'])) {
+                            // Validate date-only booking (private_office, virtual_office)
+                            $roomId = $item['room_id'] ?? null;
+                            $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
+                            $room = $roomId ? \App\Models\Room::find($roomId) : null;
+
                             if ($room) {
-                                $isExclusive = $product->product_type !== 'share_desk';
-                                $activeQ = fn() => OrderItem::where('room_id', $roomId)
-                                    ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                // Room-based + per-unit validation (sama seperti hourly exclusive)
+                                $unitCount = (int) ($room->unit_count ?? 1);
+                                $activeQ = fn () => OrderItem::where('room_id', $roomId)
+                                    ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
                                     ->where('stock_reduced', true)->where('stock_restored', false)
                                     ->where('booking_start_at', '<', $endAt)
-                                    ->where('booking_end_at', '>', $startAt->copy()->subMinutes(10));
+                                    ->where('booking_end_at', '>', $startAt);
 
-                                $exclusiveBooked = (clone $activeQ())
-                                    ->whereHas('product', fn($q) => $q->whereNotIn('product_type', ['share_desk']))->count();
-                                $sharedBooked = (int) (clone $activeQ())
-                                    ->whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))->sum('quantity');
-
-                                if ($isExclusive) {
-                                    $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
-                                    $unitCount = (int) ($room->unit_count ?? 1);
-
-                                    if ($unitIndex !== null && $unitCount > 1) {
-                                        // Validasi unit spesifik
-                                        $unitName = $item['unit_name'] ?? "Unit " . ($unitIndex + 1);
-                                        $unitTaken = (clone $activeQ())
-                                            ->whereHas('product', fn($q) => $q->whereNotIn('product_type', ['share_desk']))
-                                            ->where('unit_index', $unitIndex)
-                                            ->exists();
-                                        if ($sharedBooked > 0 || $unitTaken) {
-                                            DB::rollBack();
-                                            return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
-                                        }
-                                    } elseif ($exclusiveBooked >= $unitCount || $sharedBooked > 0) {
+                                if ($unitIndex !== null && $unitCount > 1) {
+                                    $unitName = $item['unit_name'] ?? 'Unit '.($unitIndex + 1);
+                                    $unitTaken = (clone $activeQ())->where('unit_index', $unitIndex)->exists();
+                                    if ($unitTaken) {
                                         DB::rollBack();
-                                        return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+
+                                        return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk periode tersebut. Silakan pilih unit atau tanggal lain."]);
                                     }
                                 } else {
-                                    if ($exclusiveBooked > 0 || ($room->capacity - $sharedBooked) < $item['quantity']) {
+                                    $exclusiveBooked = (clone $activeQ())->count();
+                                    if ($exclusiveBooked >= $unitCount) {
                                         DB::rollBack();
-                                        return back()->withErrors(['booking' => "Meja di {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+
+                                        return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk periode tersebut. Silakan pilih tanggal lain."]);
                                     }
+                                }
+                            } else {
+                                // Fallback global check jika tidak ada room_id
+                                $firstVariant = $product->variants()->where('is_active', true)->first();
+                                $totalSlots = $firstVariant ? ($firstVariant->stock_quantity ?? 999) : 999;
+                                if ($product->product_type === 'private_office' && $totalSlots <= 0) {
+                                    $totalSlots = 6;
+                                }
+
+                                $bookedSlots = OrderItem::whereHas('product', fn ($q) => $q->where('product_type', $product->product_type))
+                                    ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                    ->where('stock_reduced', true)->where('stock_restored', false)
+                                    ->where('booking_start_at', '<', $endAt)
+                                    ->where(fn ($q) => $q->whereNull('booking_end_at')->orWhere('booking_end_at', '>', $startAt))
+                                    ->sum('quantity');
+
+                                $productLabel = $product->product_type === 'private_office' ? 'Private Office' : 'Virtual Office';
+                                if (($totalSlots - $bookedSlots) < $item['quantity']) {
+                                    DB::rollBack();
+
+                                    return back()->withErrors(['booking' => "$productLabel tidak tersedia untuk tanggal {$item['booking_date']}. Silakan pilih tanggal lain."]);
                                 }
                             }
                         } else {
-                            // Fallback: global product_type check (backward compat)
-                            $bookedDesks = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'share_desk'))
-                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                                ->where('stock_reduced', true)->where('stock_restored', false)
-                                ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->sum('quantity');
+                            // Validate share_desk / private_room / meeting_room - room-based jika ada room_id, fallback ke global
+                            $roomId = $item['room_id'] ?? null;
 
-                            $privateRoomBooked = OrderItem::whereHas('product', fn($q) => $q->where('product_type', 'private_room'))
-                                ->whereHas('order', fn($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
-                                ->where('stock_reduced', true)->where('stock_restored', false)
-                                ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->exists();
+                            if ($roomId) {
+                                // Room-based availability check
+                                $room = \App\Models\Room::find($roomId);
+                                if ($room) {
+                                    $isExclusive = $product->product_type !== 'share_desk';
+                                    $activeQ = fn () => OrderItem::where('room_id', $roomId)
+                                        ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                        ->where('stock_reduced', true)->where('stock_restored', false)
+                                        ->where('booking_start_at', '<', $endAt)
+                                        ->where('booking_end_at', '>', $startAt->copy()->subMinutes(10));
 
-                            if ($product->product_type === 'share_desk') {
-                                $available = $privateRoomBooked ? 0 : (8 - $bookedDesks);
-                                if ($available < $item['quantity']) {
-                                    DB::rollBack();
-                                    return back()->withErrors(['booking' => "Slot Share Desk tidak tersedia lagi untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                    $exclusiveBooked = (clone $activeQ())
+                                        ->whereHas('product', fn ($q) => $q->whereNotIn('product_type', ['share_desk']))->count();
+                                    $sharedBooked = (int) (clone $activeQ())
+                                        ->whereHas('product', fn ($q) => $q->where('product_type', 'share_desk'))->sum('quantity');
+
+                                    if ($isExclusive) {
+                                        $unitIndex = isset($item['unit_index']) ? (int) $item['unit_index'] : null;
+                                        $unitCount = (int) ($room->unit_count ?? 1);
+
+                                        if ($unitIndex !== null && $unitCount > 1) {
+                                            // Validasi unit spesifik
+                                            $unitName = $item['unit_name'] ?? 'Unit '.($unitIndex + 1);
+                                            $unitTaken = (clone $activeQ())
+                                                ->whereHas('product', fn ($q) => $q->whereNotIn('product_type', ['share_desk']))
+                                                ->where('unit_index', $unitIndex)
+                                                ->exists();
+                                            if ($sharedBooked > 0 || $unitTaken) {
+                                                DB::rollBack();
+
+                                                return back()->withErrors(['booking' => "{$unitName} sudah dipesan untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                            }
+                                        } elseif ($exclusiveBooked >= $unitCount || $sharedBooked > 0) {
+                                            DB::rollBack();
+
+                                            return back()->withErrors(['booking' => "Ruangan {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                        }
+                                    } else {
+                                        if ($exclusiveBooked > 0 || ($room->capacity - $sharedBooked) < $item['quantity']) {
+                                            DB::rollBack();
+
+                                            return back()->withErrors(['booking' => "Meja di {$room->name} tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}."]);
+                                        }
+                                    }
                                 }
                             } else {
-                                if ($privateRoomBooked || $bookedDesks > 0) {
-                                    DB::rollBack();
-                                    return back()->withErrors(['booking' => "Private Room tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                // Fallback: global product_type check (backward compat)
+                                $bookedDesks = OrderItem::whereHas('product', fn ($q) => $q->where('product_type', 'share_desk'))
+                                    ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                    ->where('stock_reduced', true)->where('stock_restored', false)
+                                    ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->sum('quantity');
+
+                                $privateRoomBooked = OrderItem::whereHas('product', fn ($q) => $q->where('product_type', 'private_room'))
+                                    ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled'])->where('payment_status', '!=', 'cancelled'))
+                                    ->where('stock_reduced', true)->where('stock_restored', false)
+                                    ->where('booking_start_at', '<', $endAt)->where('booking_end_at', '>', $startAt)->exists();
+
+                                if ($product->product_type === 'share_desk') {
+                                    $available = $privateRoomBooked ? 0 : (8 - $bookedDesks);
+                                    if ($available < $item['quantity']) {
+                                        DB::rollBack();
+
+                                        return back()->withErrors(['booking' => "Slot Share Desk tidak tersedia lagi untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                    }
+                                } else {
+                                    if ($privateRoomBooked || $bookedDesks > 0) {
+                                        DB::rollBack();
+
+                                        return back()->withErrors(['booking' => "Private Room tidak tersedia untuk waktu {$item['booking_start_time']} pada {$item['booking_date']}. Silakan pilih waktu lain."]);
+                                    }
                                 }
+                            }
+                        }
+                    }
+                }
+
+                $orderItem = OrderItem::create($orderItemData);
+
+                // ── Buat Hold 15 menit untuk booking products ──
+                if (! empty($orderItemData['booking_start_at']) && $product &&
+                    in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office'])) {
+                    BookingHold::createHold([
+                        'product_id' => $item['product_id'],
+                        'room_id' => $item['room_id'] ?? null,
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'user_id' => auth()->id(),
+                        'order_id' => $order->id,
+                        'session_id' => session()->getId(),
+                        'booking_date' => $item['booking_date'],
+                        'booking_start_at' => $orderItemData['booking_start_at'],
+                        'booking_end_at' => $orderItemData['booking_end_at'],
+                        'unit_index' => $orderItemData['unit_index'] ?? null,
+                        'quantity' => $item['quantity'],
+                    ]);
+                }
+
+                // Handle stock for booking items
+                if (! empty($orderItemData['booking_start_at']) && ! empty($item['variant_id'])) {
+                    $product = $product ?? \App\Models\Product::find($item['product_id']);
+
+                    if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
+                        // Booking products: only hold the slot immediately for manual payment methods.
+                        // For Midtrans, stock_reduced is set ONLY after payment is confirmed via webhook/checkStatus.
+                        if ($validated['payment_method'] !== 'midtrans') {
+                            $orderItem->update(['stock_reduced' => true]);
+                        }
+                    } else {
+                        // Non-booking products: use global stock as before
+                        $variant = \App\Models\ProductVariant::find($item['variant_id']);
+                        if ($variant && $variant->manage_stock) {
+                            $decremented = $variant->decrementStock($item['quantity']);
+                            if ($decremented) {
+                                $orderItem->update(['stock_reduced' => true]);
                             }
                         }
                     }
                 }
             }
 
-            $orderItem = OrderItem::create($orderItemData);
-
-            // Handle stock for booking items
-            if (!empty($orderItemData['booking_start_at']) && !empty($item['variant_id'])) {
-                $product = $product ?? \App\Models\Product::find($item['product_id']);
-
-                if ($product && in_array($product->product_type, ['share_desk', 'private_room', 'meeting_room', 'private_office', 'virtual_office'])) {
-                    // Booking products: only hold the slot immediately for manual payment methods.
-                    // For Midtrans, stock_reduced is set ONLY after payment is confirmed via webhook/checkStatus.
-                    if ($validated['payment_method'] !== 'midtrans') {
-                        $orderItem->update(['stock_reduced' => true]);
-                    }
-                } else {
-                    // Non-booking products: use global stock as before
-                    $variant = \App\Models\ProductVariant::find($item['variant_id']);
-                    if ($variant && $variant->manage_stock) {
-                        $decremented = $variant->decrementStock($item['quantity']);
-                        if ($decremented) {
-                            $orderItem->update(['stock_reduced' => true]);
-                        }
-                    }
-                }
+            // Increment usage count jika ada diskon
+            if ($discount) {
+                $discount->incrementUsage();
             }
+
+            // Save agreements for logged-in users who haven't agreed yet (e.g. admin-created users)
+            if (auth()->check() && ! empty($validated['needs_agreement'])) {
+                auth()->user()->update([
+                    'agreed_terms' => true,
+                    'agreed_privacy' => true,
+                    'agreed_newsletter' => true,
+                    'agreed_at' => now(),
+                ]);
+            }
+
+            // Save newsletter subscription for guest users
+            if (! auth()->check() && ! empty($validated['agreed_newsletter'])) {
+                NewsletterSubscriber::subscribe(
+                    $validated['customer_email'],
+                    $validated['customer_name'],
+                    'guest_checkout'
+                );
+            }
+
+            DB::commit();
+
+            // Hapus cart setelah order berhasil dibuat
+            session()->forget('cart');
+
+            // Redirect ke halaman payment untuk semua metode pembayaran
+            return redirect()->route('order.payment', ['order' => $order->id]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->withErrors(['error' => 'Terjadi kesalahan: '.$e->getMessage()]);
         }
-        
-        // Increment usage count jika ada diskon
-        if ($discount) {
-            $discount->incrementUsage();
-        }
-
-        // Save agreements for logged-in users who haven't agreed yet (e.g. admin-created users)
-        if (auth()->check() && !empty($validated['needs_agreement'])) {
-            auth()->user()->update([
-                'agreed_terms' => true,
-                'agreed_privacy' => true,
-                'agreed_newsletter' => true,
-                'agreed_at' => now(),
-            ]);
-        }
-
-        // Save newsletter subscription for guest users
-        if (!auth()->check() && !empty($validated['agreed_newsletter'])) {
-            NewsletterSubscriber::subscribe(
-                $validated['customer_email'],
-                $validated['customer_name'],
-                'guest_checkout'
-            );
-        }
-
-        DB::commit();
-
-        // Hapus cart setelah order berhasil dibuat
-        session()->forget('cart');
-
-        // Redirect ke halaman payment untuk semua metode pembayaran
-        return redirect()->route('order.payment', ['order' => $order->id]);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
     }
-}
 
     public function success(Order $order)
     {
         $order->load('items');
-        
+
         return Inertia::render('Checkout/Success', [
-            'order' => $order
+            'order' => $order,
         ]);
     }
 
@@ -392,8 +500,7 @@ class CheckoutController extends Controller
             ];
         }
 
-        $isBookingProduct = $order->items->contains(fn($item) =>
-            $item->product && in_array($item->product->product_type, ['share_desk', 'private_room', 'meeting_room'])
+        $isBookingProduct = $order->items->contains(fn ($item) => $item->product && in_array($item->product->product_type, ['share_desk', 'private_room', 'meeting_room'])
         );
 
         return Inertia::render('Orders/Payment', [

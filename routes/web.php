@@ -27,6 +27,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\RoomAvailabilityController;
 use App\Http\Controllers\Admin\RoomController;
+use App\Http\Controllers\Admin\GoogleSheetsController;
 
 use App\Models\GoogleSheetsConfig;
 use App\Models\Product;
@@ -197,6 +198,33 @@ Route::middleware(['redirect.admin'])->group(function () {
 
     // API to check order status (public - for payment page polling)
     Route::get('/api/orders/{order}/status', [OrderController::class, 'checkStatus'])->name('api.orders.status.public');
+
+    // Newsletter subscription dari footer
+    Route::post('/newsletter/subscribe', function (\Illuminate\Http\Request $request) {
+        $request->validate(['email' => 'required|email|max:255']);
+        \App\Models\NewsletterSubscriber::subscribe(
+            $request->email,
+            $request->name ?? $request->email,
+            'footer',
+            auth()->id()
+        );
+        return response()->json(['message' => 'Berhasil berlangganan newsletter!']);
+    })->name('newsletter.subscribe');
+
+    // Halaman Kebijakan Privasi & Syarat dan Ketentuan
+    Route::get('/privacy', function () {
+        return Inertia::render('AgreementPage', [
+            'agreement' => \App\Models\Agreement::getPrivacy(),
+            'type'      => 'privacy',
+        ]);
+    })->name('privacy');
+
+    Route::get('/terms', function () {
+        return Inertia::render('AgreementPage', [
+            'agreement' => \App\Models\Agreement::getTerms(),
+            'type'      => 'terms',
+        ]);
+    })->name('terms');
 });
 
 // Midtrans Webhook (tidak pakai middleware karena dari external)
@@ -211,7 +239,12 @@ Route::post('/midtrans/notification', [MidtransController::class, 'notification'
 Route::get('/dashboard', function () {
     $user = Auth::user();
 
-    if ($user && $user->role === 'admin') {
+    $isStaff = $user && (
+        $user->hasAnyRole(['admin', 'resepsionis']) ||
+        in_array($user->role, ['admin', 'resepsionis'])
+    );
+
+    if ($isStaff) {
         return redirect('/admin/adminlayout');
     }
 
@@ -222,9 +255,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
-    // User Dashboard
-    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+
+    // User orders page
+    Route::get('/orders', [UserDashboardController::class, 'index'])->name('user.dashboard');
     Route::post('/orders/{order}/cancel', [UserDashboardController::class, 'cancelOrder'])->name('orders.cancel');
     
     // API to check order status
@@ -240,184 +273,127 @@ Route::middleware('auth')->group(function () {
 | Admin Routes
 |--------------------------------------------------------------------------
 */
-Route::get('/admin/test', function () {
-    return response()->json(['message' => 'Admin route works']);
-})->name('admin.test');
 
-// Test route untuk melihat admin users
-Route::get('/test-admin-users', function () {
-    $users = \App\Models\User::all(['name', 'email', 'created_at']);
-    return response()->json([
-        'total_users' => $users->count(),
-        'users' => $users
-    ]);
-});
+Route::middleware(['auth', 'verified', 'resepsionis'])->prefix('admin')->name('admin.')->group(function () {
 
-// Route untuk logout dari admin (khusus untuk testing)
-Route::get('/admin-logout', function () {
-    Auth::logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-    return redirect('/login')->with('message', 'Berhasil logout dari admin');
-})->name('admin.logout');
+    // ============================================================
+    // SHARED: Admin + Resepsionis
+    // ============================================================
 
-// Route untuk cek status login
-Route::get('/check-auth', function () {
-    return response()->json([
-        'authenticated' => Auth::check(),
-        'user' => Auth::user() ? Auth::user()->only(['name', 'email']) : null
-    ]);
-});
-
-/*
-|--------------------------------------------------------------------------
-| Admin Routes
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    
     // Dashboard
     Route::get('/adminlayout', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('LandingAdmin');
-    
-    // Alias untuk dashboard admin
     Route::get('/', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
 
-    // Delete order dari dashboard
-    Route::delete('/orders/{id}/delete', [App\Http\Controllers\Admin\DashboardController::class, 'deleteOrder'])->name('orders.delete');
-
-    // Payment Settings routes (bukan bagian dari orders, tapi pengaturan sistem)
-    Route::get('/paymentsettings', [PaymentSettingsController::class, 'index'])->name('admin.paymentsettings');
-    Route::post('/paymentsettings/qris', [PaymentSettingsController::class, 'updateQris'])->name('admin.paymentsettings.qris');
-    Route::post('/paymentsettings/bank', [PaymentSettingsController::class, 'updateBank'])->name('admin.paymentsettings.bank');
-    Route::post('/paymentsettings/operational-hours', [PaymentSettingsController::class, 'updateOperationalHours'])->name('admin.paymentsettings.operational-hours');
-
-    // Payment Verification routes
+    // Orders & Payment
+    Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
+    Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
+    Route::post('/orders/{order}/send-invoice', [AdminOrderController::class, 'sendInvoice'])->name('orders.send-invoice');
+    Route::get('/orders/{order}/download-invoice', [AdminOrderController::class, 'downloadInvoice'])->name('orders.download-invoice');
     Route::get('/payments', [AdminOrderController::class, 'payments'])->name('admin.payments');
     Route::post('/orders/{order}/verify-payment', [AdminOrderController::class, 'verifyPayment'])->name('admin.orders.verify-payment');
+    Route::delete('/orders/{id}/delete', [App\Http\Controllers\Admin\DashboardController::class, 'deleteOrder'])->name('orders.delete');
 
-    // Schedule Management Routes
+    // Reservations
+    Route::get('reservations', function () {
+        return Inertia::render('admin/Reservations', ['auth' => ['user' => Auth::user()]]);
+    })->name('reservations');
+
+    // Monitoring
+    Route::get('monitoring', function () {
+        return Inertia::render('admin/RoomMonitoring');
+    })->name('monitoring');
+    Route::patch('monitoring/stock/{product}', [\App\Http\Controllers\Admin\RoomMonitoringController::class, 'adjustStock'])->name('monitoring.adjust-stock');
+
+    // Schedule Management
     Route::get('/schedule', [ScheduleController::class, 'index'])->name('schedule.index');
     Route::post('/schedule/parse-excel', [ScheduleController::class, 'parseExcel'])->name('schedule.parse-excel');
     Route::post('/schedule/upload', [ScheduleController::class, 'upload'])->name('schedule.upload');
     Route::delete('/schedule/clear', [ScheduleController::class, 'clear'])->name('schedule.clear');
     Route::get('/schedule/view', [ScheduleController::class, 'view'])->name('schedule.view');
 
-    // Google Sheets Configuration
-    Route::get('/google-sheets-config', function() {
-        return Inertia::render('Admin/GoogleSheetsConfig', [
-            'currentConfig' => GoogleSheetsConfig::first(),
-        ]);
-    })->name('google-sheets');
-    
-    Route::get('/test-orders', function () {
-        $orders = \App\Models\Order::with('items.product', 'items.productVariant')
-            ->latest()
-            ->get()
-            ->map(function ($order) {
-                return [
-                    'id' => $order->id,
-                    'order_number' => $order->order_number,
-                    'customer_name' => $order->customer_name,
-                    'customer_email' => $order->customer_email,
-                    'total' => (float) $order->total,
-                    'payment_method' => $order->payment_method,
-                    'payment_status' => $order->payment_status,
-                    'created_at' => $order->created_at->format('Y-m-d H:i:s'),
-                ];
-            })
-            ->toArray();
-        
-        return response()->json([
-            'count' => count($orders),
-            'orders' => $orders
-        ]);
-    });
-
-    
-    // routes untuk Category ya gess
-    Route::resource('categories', CategoryController::class);
-    Route::patch('categories/update-order', [CategoryController::class, 'updateOrder'])->name('categories.update-order');
-
-    // routes untuk Product ya gess
-    Route::resource('products', ProductController::class);
-    Route::post('products/{product}/duplicate', [ProductController::class, 'duplicate'])->name('products.duplicate');
-    Route::patch('products/{product}/status', [ProductController::class, 'updateStatus'])->name('products.update-status');
-    Route::patch('products/{product}/featured', [ProductController::class, 'toggleFeatured'])->name('products.toggle-featured');
-    Route::delete('products/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulk-delete');
-    
-    
-    Route::post('products/upload-image', [ProductController::class, 'uploadImage'])->name('products.upload-image');
-    Route::delete('products/delete-image', [ProductController::class, 'deleteImage'])->name('products.delete-image');
-    
-    // routes untuk Export/Import produk ya gess
-    Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
-    Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
-
-    // routes untuk page admin ya gess
-    Route::get('settings', function () {
-        return Inertia::render('admin/Settings', [
-            'auth' => ['user' => Auth::user()]
-        ]);
-    })->name('settings');
-
-    Route::get('statistics', [StatisticsController::class, 'index'])->name('statistics');
-
-    Route::get('reservations', function () {
-        return Inertia::render('admin/Reservations', [
-            'auth' => ['user' => Auth::user()]
-        ]);
-    })->name('reservations');
-
-    // Discounts Management Routes
-    Route::resource('discounts', DiscountController::class);
-    Route::patch('discounts/{discount}/toggle', [DiscountController::class, 'toggleStatus'])->name('discounts.toggle');
-
-    // Users Management Routes
-    Route::resource('users', UserController::class);
-
-    // Newsletter Routes
-    Route::post('newsletter/send', [NewsletterController::class, 'send'])->name('newsletter.send');
-    Route::delete('newsletter/unsubscribe/{subscriber}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
-
-    Route::get('monitoring', function () {
-        return Inertia::render('admin/RoomMonitoring');
-    })->name('monitoring');
-
-    Route::patch('monitoring/stock/{product}', [\App\Http\Controllers\Admin\RoomMonitoringController::class, 'adjustStock'])->name('monitoring.adjust-stock');
-
-    Route::get('integrations', function () {
-        return Inertia::render('admin/Integrations', [
-            'auth' => ['user' => Auth::user()]
-        ]);
-    })->name('integrations');
-    
-    // Admin Orders Management Routes
-    Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
-    Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
-    Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
-    Route::post('/orders/{order}/send-invoice', [AdminOrderController::class, 'sendInvoice'])->name('orders.send-invoice');
-    Route::get('/orders/{order}/download-invoice', [AdminOrderController::class, 'downloadInvoice'])->name('orders.download-invoice');
-
-    // Agreements Management Routes
-    Route::get('agreements', [AgreementController::class, 'index'])->name('agreements.index');
-    Route::get('agreements/{agreement}/edit', [AgreementController::class, 'edit'])->name('agreements.edit');
-    Route::put('agreements/{agreement}', [AgreementController::class, 'update'])->name('agreements.update');
-
-    // News Management Routes
-    Route::resource('news', NewsController::class);
-
-    // Room Management Routes
+    // Rooms (view only untuk resepsionis)
     Route::get('rooms', [RoomController::class, 'index'])->name('rooms.index');
-    Route::post('rooms', [RoomController::class, 'store'])->name('rooms.store');
-    Route::put('rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
-    Route::delete('rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
 
-    // Reviews Management Routes
+    // Reviews (view only untuk resepsionis)
     Route::get('reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
-    Route::post('reviews/{review}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
-    Route::patch('reviews/{review}/toggle-approve', [AdminReviewController::class, 'toggleApprove'])->name('reviews.toggle-approve');
-    Route::delete('reviews/{review}', [AdminReviewController::class, 'destroy'])->name('reviews.destroy');
+
+    // ============================================================
+    // ADMIN ONLY
+    // ============================================================
+    Route::middleware('admin')->group(function () {
+
+        // Payment Settings
+        Route::get('/paymentsettings', [PaymentSettingsController::class, 'index'])->name('admin.paymentsettings');
+        Route::post('/paymentsettings/qris', [PaymentSettingsController::class, 'updateQris'])->name('admin.paymentsettings.qris');
+        Route::post('/paymentsettings/bank', [PaymentSettingsController::class, 'updateBank'])->name('admin.paymentsettings.bank');
+        Route::post('/paymentsettings/ppn', [PaymentSettingsController::class, 'updatePpn'])->name('admin.paymentsettings.ppn');
+
+        // Google Sheets
+        Route::get('/google-sheets-config', [GoogleSheetsController::class, 'index'])->name('google-sheets');
+        Route::post('/google-sheets/store', [GoogleSheetsController::class, 'store'])->name('google-sheets.store');
+        Route::put('/google-sheets/update', [GoogleSheetsController::class, 'update'])->name('google-sheets.update');
+        Route::post('/google-sheets/test', [GoogleSheetsController::class, 'test'])->name('google-sheets.test');
+        Route::delete('/google-sheets/delete', [GoogleSheetsController::class, 'delete'])->name('google-sheets.delete');
+        Route::post('/google-sheets/sync', [GoogleSheetsController::class, 'sync'])->name('google-sheets.sync');
+
+        // Categories
+        Route::resource('categories', CategoryController::class);
+        Route::patch('categories/update-order', [CategoryController::class, 'updateOrder'])->name('categories.update-order');
+
+        // Products
+        Route::resource('products', ProductController::class);
+        Route::post('products/{product}/duplicate', [ProductController::class, 'duplicate'])->name('products.duplicate');
+        Route::patch('products/{product}/status', [ProductController::class, 'updateStatus'])->name('products.update-status');
+        Route::patch('products/{product}/featured', [ProductController::class, 'toggleFeatured'])->name('products.toggle-featured');
+        Route::delete('products/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulk-delete');
+        Route::post('products/upload-image', [ProductController::class, 'uploadImage'])->name('products.upload-image');
+        Route::delete('products/delete-image', [ProductController::class, 'deleteImage'])->name('products.delete-image');
+        Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
+        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
+
+        // Settings
+        Route::get('settings', function () {
+            return Inertia::render('admin/Settings', ['auth' => ['user' => Auth::user()]]);
+        })->name('settings');
+
+        // Statistics
+        Route::get('statistics', [StatisticsController::class, 'index'])->name('statistics');
+
+        // Discounts
+        Route::resource('discounts', DiscountController::class);
+        Route::patch('discounts/{discount}/toggle', [DiscountController::class, 'toggleStatus'])->name('discounts.toggle');
+
+        // Users
+        Route::resource('users', UserController::class);
+
+        // Newsletter
+        Route::post('newsletter/send', [NewsletterController::class, 'send'])->name('newsletter.send');
+        Route::delete('newsletter/unsubscribe/{subscriber}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
+
+        // Integrations
+        Route::get('integrations', function () {
+            return Inertia::render('admin/Integrations', ['auth' => ['user' => Auth::user()]]);
+        })->name('integrations');
+
+        // Agreements
+        Route::get('agreements', [AgreementController::class, 'index'])->name('agreements.index');
+        Route::get('agreements/{agreement}/edit', [AgreementController::class, 'edit'])->name('agreements.edit');
+        Route::put('agreements/{agreement}', [AgreementController::class, 'update'])->name('agreements.update');
+
+        // News
+        Route::resource('news', NewsController::class);
+
+        // Rooms (CRUD hanya admin)
+        Route::post('rooms', [RoomController::class, 'store'])->name('rooms.store');
+        Route::put('rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
+        Route::delete('rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+        // Reviews (approve/delete hanya admin)
+        Route::post('reviews/{review}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
+        Route::patch('reviews/{review}/toggle-approve', [AdminReviewController::class, 'toggleApprove'])->name('reviews.toggle-approve');
+        Route::delete('reviews/{review}', [AdminReviewController::class, 'destroy'])->name('reviews.destroy');
+    });
 });
 
 /*
@@ -446,43 +422,8 @@ Route::get('/adminlogin', function () {
 })->name('admin.login.page');
 
 
-// checkout
-
-// Cart routes
-Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
-Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
-Route::post('/cart/update-quantity', [CartController::class, 'updateQuantity'])->name('cart.updateQuantity');
-
-// Checkout routes
-Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-Route::get('/order/success/{order}', [CheckoutController::class, 'success'])->name('order.success');
-
-
-
-Route::get('/test-product/{slug}', function ($slug) {
-    $product = \App\Models\Product::with(['variants'])
-        ->where('slug', $slug)
-        ->firstOrFail();
-    
-    return response()->json([
-        'id' => $product->id,
-        'title' => $product->title,
-        'variants_loaded' => $product->relationLoaded('variants'),
-        'variants_count' => $product->variants->count(),
-        'variants' => $product->variants->toArray(),
-        'custom_options_type' => gettype($product->custom_options),
-        'custom_options' => $product->custom_options,
-        'images_type' => gettype($product->images),
-        'images' => $product->images,
-    ]);
-});
-
 Route::get('/workspace/{category?}', [WorkspaceController::class, 'index'])->name('workspace');
 
-// cutomer routes
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
 Route::get('/orders/{order}/payment', [CheckoutController::class, 'payment'])->name('orders.payment');
 Route::post('/orders/{order}/upload-payment', [OrderController::class, 'uploadPayment'])->name('orders.upload-payment');
 Route::get('/orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');

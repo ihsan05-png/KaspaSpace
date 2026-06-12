@@ -322,11 +322,7 @@ const ProductsEdit = ({ product, categories, rooms = [], productRoomIds = [], un
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    console.log('Form submitted!');
-    console.log('Processing:', processing);
-    console.log('Data:', data);
-    
+
     // Filter out empty custom options
     const validCustomOptions = data.custom_options.filter(option => 
       option.question && option.question.trim() !== ''
@@ -365,11 +361,8 @@ const ProductsEdit = ({ product, categories, rooms = [], productRoomIds = [], un
       room_ids: data.room_ids,
     };
     
-    console.log('Submit data:', submitData);
-    
     // If there are new images, use FormData via Inertia (let Inertia handle array encoding)
     if (data.images.length > 0) {
-      console.log('Using FormData with images:', data.images.length);
       router.post(route('admin.products.update', product.slug), {
         ...submitData,
         images: data.images,
@@ -377,24 +370,11 @@ const ProductsEdit = ({ product, categories, rooms = [], productRoomIds = [], un
       }, {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => {
-          console.log('Update successful!');
-        },
-        onError: (errors) => {
-          console.error('Update failed:', errors);
-        },
       });
     } else {
-      console.log('Using regular PUT request');
       // No new images, use router.put with submitData directly
       router.put(route('admin.products.update', product.slug), submitData, {
         preserveScroll: true,
-        onSuccess: () => {
-          console.log('Update successful!');
-        },
-        onError: (errors) => {
-          console.error('Update failed:', errors);
-        },
       });
     }
   };

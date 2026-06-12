@@ -3,56 +3,56 @@ import React from "react";
 const DipercayaKlien = () => {
     const clients = [
         // Baris 1
-        { name: "SOFDøH Soft Sourdough", logo: "/path/to/sofdoh-logo.png" },
-        { name: "Kindirga EduAccess", logo: "/path/to/kindirga-logo.png" },
-        { name: "ABI Insurance", logo: "/path/to/abi-logo.png" },
-        { name: "Sevibu", logo: "/path/to/sevibu-logo.png" },
-        { name: "VG Solusi", logo: "/path/to/vgsolusi-logo.png" },
-        { name: "PT Makala Inovasi Digital", logo: "/path/to/makala-logo.png" },
-        { name: "Sansan", logo: "/path/to/sansan-logo.png" },
-        { name: "EDUGORILLA", logo: "/path/to/edugorilla-logo.png" },
+        { name: "SOFDøH Soft Sourdough", logo: "/images/client/sofdoh-holistik-wellnery-YrDJBX06EPhz1P8x.png" },
+        { name: "Kindirga EduAccess", logo: "/images/client/kindirga-eduaccess-A1a5NrEMXaC84xqB.png" },
+        { name: "ABI Insurance", logo: "/images/client/abi-insurance1-YBgbxy2VllHyraaZ.png" },
+        { name: "Sevibu", logo: "/images/client/sevibu-m5KnbxQ7lRCzl9Dz.png" },
+        { name: "VG Solusi", logo: "/images/client/pt-visioner-global-solusi-ALpPow6EePTzqDOg.png" },
+        { name: "PT Makala Inovasi Digital", logo: "/images/client/pt-makala-inovasi-digital-mnlJ9zlQKVHgwq4L.png" },
+        { name: "Sansan", logo: "/images/client/pt-sinergi-abadi-nusantara-YanJ19P19pcXwv59.png" },
+        { name: "EDUGORILLA", logo: "/images/client/edugorilla-m7Vb3Kbk6lcMDx1l.png" },
         
         // Baris 2
-        { name: "HSI", logo: "/path/to/hsi-logo.png" },
-        { name: "Codero Coding Robot", logo: "/path/to/codero-logo.png" },
-        { name: "Rumah Damar", logo: "/path/to/rumahdamar-logo.png" },
-        { name: "U Can Speak", logo: "/path/to/ucanspeak-logo.png" },
-        { name: "PT Britta Buana Sakti", logo: "/path/to/britta-logo.png" },
-        { name: "Modena", logo: "/path/to/modena-logo.png" },
-        { name: "Maxride", logo: "/path/to/maxride-logo.png" },
-        { name: "2Lingo Learning Center", logo: "/path/to/2lingo-logo.png" },
+        { name: "HSI", logo: "/images/client/hsi-A3Q76QQwvLTnoNaJ.png" },
+        { name: "Codero Coding Robot", logo: "/images/client/codero-mk3vzODGzRi5y2KM.png" },
+        { name: "Parakletos", logo: "/images/client/parakletos-praktek-psikolog-1-A85Eo9KoLacykMPZ.png" },
+        { name: "U Can Speak", logo: "/images/client/u-can-speak1-KdfwtV5kE031HcKh.png" },
+        { name: "PT Britta Buana Sakti", logo: "/images/client/pt-britta-buana-sakti-WLsASq9RbOzOMSNi.png" },
+        { name: "Modena", logo: "/images/client/pt-modena-indonesia-hZdbfPcWdfwkzRBp.png" },
+        { name: "Maxride", logo: "/images/client/pt-max-auto-indonesia-kpLOeKnQZ3RoLTnv.png" },
+        { name: "Zilingo", logo: "/images/client/zilingo-2FPWxugXy26DYXgx.png" },
         
         // Baris 3
-        { name: "Suara Merdeka", logo: "/path/to/suaramerdeka-logo.png" },
-        { name: "ProWebSolution", logo: "/path/to/prowebsolution-logo.png" },
-        { name: "The Kirimaya", logo: "/path/to/kirimaya-logo.png" },
-        { name: "MIGUNANI Consulting", logo: "/path/to/migunani-logo.png" },
+        { name: "Suara Merdeka", logo: "/images/client/pt-suara-merdeka-press1-jGlvCXGMlmBbZp7L.png" },
+        { name: "ProWebSolution", logo: "/images/client/cv-pro-web-solution-BropyfeGf02P4agb.png" },
+        { name: "The Kirimaya", logo: "/images/client/pt-the-kirimaya-asri-kCjzXTXx9a1VFD3t.png" },
+        { name: "MIGUNANI Consulting", logo: "/images/client/migunani-consulting-5FpettRyzPzPEoCB.png" },
         
         // Previous clients from first screenshot
-        { name: "Wind's Chemical Indonesia", logo: "/path/to/winds-logo.png" },
-        { name: "KHPI", logo: "/path/to/khpi-logo.png" },
-        { name: "Pajak Smart", logo: "/path/to/pajaksmart-logo.png" },
-        { name: "Sekolah Pasar", logo: "/path/to/sekolahpasar-logo.png" },
-        { name: "Yayasan Ibarat Kabut", logo: "/path/to/yayasan-logo.png" },
-        { name: "SMU", logo: "/path/to/smu-logo.png" },
-        { name: "Prospect", logo: "/path/to/prospect-logo.png" },
-        { name: "Nathan Thomas & Partners", logo: "/path/to/nathan-logo.png" },
-        { name: "SSJ Software Development", logo: "/path/to/ssj-logo.png" },
-        { name: "Notarius INI", logo: "/path/to/notarius2-logo.png" },
-        { name: "PT Banjang Lembagaku", logo: "/path/to/banjang-logo.png" },
-        { name: "Access", logo: "/path/to/access-logo.png" },
-        { name: "PT Lesa Digital Solusi", logo: "/path/to/lesa-logo.png" },
-        { name: "STC", logo: "/path/to/stc-logo.png" },
-        { name: "Dewi Intan Puspitadesi", logo: "/path/to/dewi-logo.png" },
-        { name: "UMS", logo: "/path/to/ums-logo.png" },
-        { name: "Hilano LCZ Indonesia", logo: "/path/to/hilano-logo.png" },
-        { name: "PT Dewa Kimia", logo: "/path/to/dewa-logo.png" },
-        { name: "Ajithara", logo: "/path/to/ajithara-logo.png" },
-        { name: "Karya Mandiri", logo: "/path/to/karya-logo.png" },
-        { name: "Arifin Masruri", logo: "/path/to/arifin-logo.png" },
-        { name: "Yoga", logo: "/path/to/yoga-logo.png" },
-        { name: "Cembeliq Tech", logo: "/path/to/cembeliq-logo.png" },
-        { name: "Drone Solo", logo: "/path/to/drone-logo.png" },
+        { name: "Wind's Chemical Indonesia", logo: "/images/client/cv-winds-chemical-indonesia-FO2HlPnqgG7CUhtG.png" },
+        { name: "KHPI", logo: "/images/client/pkhpi-ALp7LelErlU44vJN.png" },
+        { name: "Pajak Smart", logo: "/images/client/pajak-smart-Yg2qXjX3aNILvJqb.png" },
+        { name: "Sekolah Pajak", logo: "/images/client/cv-sekolah-pajak-A85Elek2nWs7nbr9.png" },
+        { name: "Haramain", logo: "/images/client/haramain-university-WDQuPWLTONX1lS8F.png" },
+        { name: "UNS", logo: "/images/client/uns-Pr6g8qWDF64s3rkf.png" },
+        { name: "Prospect", logo: "/images/client/prospect-institute-YleqNWnOzqC3a9KV.png" },
+        { name: "Nathan Thomas & Partners", logo: "/images/client/konsultan-pajak-nathan-thomas-YD0BgljKlghopR6X.png" },
+        { name: "SSJ Software Development", logo: "/images/client/cv-solo-satu-jiwa-Yg2qXjLZPEU14Q6w.png" },
+        { name: "Notarius INI", logo: "/images/client/notaris-kevin-virdiantor-A0x1KlWaQpH5EMJ5.png" },
+        { name: "PT Bangun Sumberdaya", logo: "/images/client/pt-bangun-sumberdaya-mandiri-m7V5Z3klNNTpoON0.png" },
+        { name: "Access", logo: "/images/client/pt-access-media-tour-YNqPoBJxqyUMVllp.png" },
+        { name: "PT Lesa Digital Solusi", logo: "/images/client/pt-lesa-digital-solusi-1-mxBMvb2GBPSpMrBO.png" },
+        { name: "STC", logo: "/images/client/pt-sanna-technology-consultant-2-YD0B1oQpN8uKplNE.png" },
+        { name: "Mindset Psychology", logo: "/images/client/mindset-psychology-counseling1-A85VyZ0Wk7fZboO5.png" },
+        { name: "UMS", logo: "/images/client/ums-1-YrDqnbxp5xt5Pa79.png" },
+        { name: "Hilano LCZ Indonesia", logo: "/images/client/hilano-lcz-indonesia1-AGB22RPk57TV37GG.png" },
+        { name: "PT Dewa Kimia", logo: "/images/client/pt-dewa-kimia-indonesia1-m5KMMR683liEkwVk.png" },
+        { name: "Aizen", logo: "/images/client/aizen-indonesia1-tU4aNsJCQW87jKu0.png" },
+        { name: "Karya Mandiri", logo: "/images/client/pt-san-karya-mandiri1-AQExxgvwPkf9y3we.png" },
+        { name: "Arifin Masruri", logo: "/images/client/arifin-masruri-consulting1-AzGXxj0KV0hnw1P7.png" },
+        { name: "Arlic", logo: "/images/client/arlic-indonesia-imsdcivzuPn7PxIQ.png" },
+        { name: "Cembeliq Tech", logo: "/images/client/cembeliq-tech.-YBgbx86aKeigQlpr.png" },
+        { name: "Drone Solo", logo: "/images/client/drone_solo-Aq2JXNxzPqhpeXPK.png" },
     ];
 
     return (
@@ -77,7 +77,7 @@ const DipercayaKlien = () => {
                             <img
                                 src={client.logo}
                                 alt={client.name}
-                                className="h-16 w-auto object-contain"
+                                className="h-20 md:h-24 w-auto object-contain"
                             />
                         </div>
                     ))}

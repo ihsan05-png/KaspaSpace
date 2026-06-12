@@ -107,7 +107,10 @@ class OrderController extends Controller
                 'created_at' => $order->created_at,
                 'paid_at' => $order->paid_at,
                 'payment_method' => $order->payment_method,
+                'status' => $order->status,
                 'subtotal' => $order->subtotal,
+                'discount_code' => $order->discount_code,
+                'discount_amount' => $order->discount_amount ?? 0,
                 'tax' => $order->tax ?? 0,
                 'total' => $order->total,
                 'items' => $order->items->map(function ($item) {
@@ -118,11 +121,14 @@ class OrderController extends Controller
                         'quantity' => $item->quantity,
                         'price' => $item->price,
                         'subtotal' => $item->subtotal,
+                        'booking_start_at' => $item->booking_start_at,
+                        'booking_end_at' => $item->booking_end_at,
                     ];
                 }),
+                'payment_status' => $order->payment_status,
             ],
-            'storeName' => config('app.name', 'Toko Kita'),
-            'storeAddress' => 'Jl. Bisnis No. 456, Jakarta',
+            'storeName' => config('app.name', 'Kaspa Space'),
+            'storeAddress' => 'Jakarta Selatan',
             'storePhone' => '(021) 1234-5678',
         ]);
     }
@@ -209,28 +215,35 @@ class OrderController extends Controller
 
         $itemsHtml = '';
         foreach ($order->items as $item) {
-            $variantName = $item->variant_name ? "<br><small style='color: #3b82f6;'>{$item->variant_name}</small>" : '';
-            $bookingInfo = '';
+            $variantHtml  = $item->variant_name
+                ? "<div class='prod-variant'>{$item->variant_name}</div>" : '';
+            $bookingHtml = '';
             if ($item->booking_start_at && $item->booking_end_at) {
-                $dateStr = $item->booking_start_at->translatedFormat('j M Y');
+                $dateStr   = $item->booking_start_at->translatedFormat('j M Y');
                 $startTime = $item->booking_start_at->format('H:i');
-                $endTime = $item->booking_end_at->format('H:i');
-                $bookingInfo = "<br><small style='color: #059669;'>{$dateStr}, {$startTime} - {$endTime}</small>";
+                $endTime   = $item->booking_end_at->format('H:i');
+                $bookingHtml = "<div class='prod-booking'>{$dateStr}, {$startTime} - {$endTime}</div>";
             }
             $itemsHtml .= "
                 <tr>
-                    <td style='padding: 12px; border-bottom: 1px solid #eee;'>{$item->product_name}{$variantName}{$bookingInfo}</td>
-                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: center;'>{$item->quantity}</td>
-                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: right;'>Rp" . number_format($item->price, 0, ',', '.') . "</td>
-                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;'>Rp" . number_format($item->subtotal, 0, ',', '.') . "</td>
+                    <td><span class='prod-name'>{$item->product_name}</span>{$variantHtml}{$bookingHtml}</td>
+                    <td style='text-align:right;'>{$item->quantity}</td>
+                    <td style='text-align:right;'>Rp" . number_format($item->price, 0, ',', '.') . "</td>
+                    <td style='text-align:right;font-weight:700;color:#1a2e5a;'>Rp" . number_format($item->subtotal, 0, ',', '.') . "</td>
                 </tr>
             ";
         }
 
         $logoPath = public_path('images/kaspa-space-logo.png');
-        $logoData = base64_encode(file_get_contents($logoPath));
-        $logoSrc = 'data:image/png;base64,' . $logoData;
-        $phoneHtml = $order->customer_phone ? "<p style='margin: 5px 0;'><strong>Telepon:</strong> {$order->customer_phone}</p>" : "";
+        $logoSrc = '';
+        if (file_exists($logoPath)) {
+            $logoData = base64_encode(file_get_contents($logoPath));
+            $logoSrc = 'data:image/png;base64,' . $logoData;
+        }
+
+        $navy = '#1a2e5a';
+        $customerPhone = $order->customer_phone
+            ? "<p style='font-size:13px;color:#6b7280;margin:0 0 4px;'>&#128222; {$order->customer_phone}</p>" : '';
 
         $html = "
         <!DOCTYPE html>
@@ -239,67 +252,112 @@ class OrderController extends Controller
             <meta charset='UTF-8'>
             <title>Invoice {$order->order_number}</title>
             <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
-                .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; }
-                .info-table { width: 100%; margin-bottom: 30px; }
-                .info-table td { vertical-align: top; width: 50%; padding: 0 10px; }
-                .info-table h3 { color: #3b82f6; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
-                .info-table p { margin: 5px 0; font-size: 14px; }
-                .items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                .items-table th { background: #3b82f6; color: white; padding: 12px; font-size: 14px; }
-                .items-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-                .footer { text-align: center; border-top: 1px solid #eee; padding-top: 20px; color: #666; font-size: 12px; }
+                * { margin:0; padding:0; box-sizing:border-box; }
+                body { font-family:'Segoe UI',Arial,sans-serif; background:#eef2f7; padding:40px 20px; color:#333; }
+                .card { background:#fff; max-width:720px; margin:0 auto; border-radius:12px; overflow:hidden; position:relative; }
+                .header { display:flex; padding:36px 40px 28px; gap:24px; align-items:flex-start; }
+                .header-left { flex:1; }
+                .brand { font-size:24px; font-weight:800; color:{$navy}; letter-spacing:-0.5px; }
+                .brand-sub { font-size:13px; color:#6b7280; margin-top:4px; }
+                .divider-v { width:1px; background:#e5e7eb; align-self:stretch; }
+                .header-right { text-align:right; min-width:190px; }
+                .inv-label { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:6px; }
+                .inv-number { font-size:16px; font-weight:800; color:{$navy}; font-family:monospace; margin-bottom:8px; letter-spacing:0.02em; }
+                .inv-date { font-size:13px; color:#6b7280; }
+                .info-grid { display:flex; padding:0 40px 28px; border-bottom:1px solid #f3f4f5; gap:0; }
+                .info-col { flex:1; }
+                .info-col.right { padding-left:24px; border-left:1px solid #f3f4f5; }
+                .info-col.left { padding-right:24px; }
+                .section-label { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#9ca3af; margin-bottom:12px; }
+                .customer-name { font-weight:700; font-size:15px; color:{$navy}; margin-bottom:6px; }
+                .customer-detail { font-size:13px; color:#6b7280; margin-bottom:4px; }
+                .order-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; }
+                .order-row span:first-child { color:#6b7280; }
+                .order-row span:last-child { font-weight:600; color:{$navy}; }
+                .badge { font-size:12px; font-weight:700; padding:3px 12px; border-radius:20px; }
+                .badge-paid { background:#dcfce7; color:#166534; }
+                .badge-pending { background:#fef9c3; color:#854d0e; }
+                .items-section { padding:0 40px 28px; position:relative; overflow:hidden; }
+                table.items { width:100%; border-collapse:collapse; }
+                table.items th { background:{$navy}; color:#fff; padding:12px 14px; font-size:12px; font-weight:700; letter-spacing:0.06em; }
+                table.items td { padding:13px 14px; border-bottom:1px solid #f3f4f5; font-size:14px; color:#374151; }
+                table.items tr:nth-child(odd) td { background:#f9fafb; }
+                .prod-name { font-weight:600; color:#111827; }
+                .prod-variant { font-size:12px; color:#3b82f6; margin-top:2px; }
+                .prod-booking { font-size:12px; color:#059669; margin-top:2px; }
+                .total-box { display:flex; justify-content:flex-end; margin-top:20px; }
+                .total-inner { background:{$navy}; border-radius:10px; padding:13px 28px; display:flex; align-items:center; gap:24px; }
+                .total-label { font-size:13px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.06em; }
+                .total-amount { font-size:20px; font-weight:800; color:#fff; }
+                .watermark { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-35deg); font-size:60px; font-weight:900; color:{$navy}; opacity:0.06; letter-spacing:6px; pointer-events:none; white-space:nowrap; }
+                .footer { padding:16px 40px 28px; border-top:1px solid #f3f4f5; text-align:center; }
+                .footer p { font-size:12px; color:#9ca3af; font-style:italic; }
             </style>
         </head>
         <body>
-            <div class='invoice-header'>
-                <img src='{$logoSrc}' alt='Kaspa Space' style='height: 100px;' />
+        <div class='card'>
+            <div class='header'>
+                <div class='header-left'>
+                    " . ($logoSrc ? "<img src='{$logoSrc}' style='height:32px;margin-bottom:6px;display:block;' />" : '') . "
+                    <div class='brand'>Kaspa Space</div>
+                    <div class='brand-sub'>Premium Coworking Hub</div>
+                    <div class='brand-sub'>Jakarta Selatan</div>
+                </div>
+                <div class='divider-v'></div>
+                <div class='header-right'>
+                    <div class='inv-label'>Invoice Number</div>
+                    <div class='inv-number'>{$order->order_number}</div>
+                    <div class='inv-date'>Tanggal: {$order->created_at->translatedFormat('j M Y')}</div>
+                </div>
             </div>
-            <table class='info-table'>
-                <tr>
-                    <td>
-                        <h3>Informasi Pesanan</h3>
-                        <p><strong>No. Invoice:</strong> {$order->order_number}</p>
-                        <p><strong>Tanggal:</strong> {$order->created_at->format('d M Y, H:i')}</p>
-                        <p><strong>Metode Pembayaran:</strong> {$paymentMethod}</p>
-                        <p><strong>Status:</strong> {$paymentStatus}</p>
-                    </td>
-                    <td>
-                        <h3>Informasi Pelanggan</h3>
-                        <p><strong>Nama:</strong> {$order->customer_name}</p>
-                        <p><strong>Email:</strong> {$order->customer_email}</p>
-                        {$phoneHtml}
-                    </td>
-                </tr>
-            </table>
-            <table class='items-table'>
-                <thead>
-                    <tr>
-                        <th style='text-align: left;'>Produk</th>
-                        <th style='text-align: center;'>Qty</th>
-                        <th style='text-align: right;'>Harga</th>
-                        <th style='text-align: right;'>Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {$itemsHtml}
-                </tbody>
-            </table>
-            <div style='text-align: right; margin-bottom: 30px;'>
-                <table style='margin-left: auto;'>
-                    <tr>
-                        <td style='border-top: 2px solid #3b82f6; padding-top: 10px;'>
-                            <span style='font-size: 18px; font-weight: bold;'>TOTAL: </span>
-                            <span style='font-size: 20px; font-weight: bold; color: #3b82f6;'>Rp" . number_format($order->total, 0, ',', '.') . "</span>
-                        </td>
-                    </tr>
+
+            <div class='info-grid'>
+                <div class='info-col left'>
+                    <div class='section-label'>Informasi Pelanggan</div>
+                    <div class='customer-name'>{$order->customer_name}</div>
+                    <p class='customer-detail'>&#9993; {$order->customer_email}</p>
+                    {$customerPhone}
+                </div>
+                <div class='info-col right'>
+                    <div class='section-label'>Informasi Order</div>
+                    <div class='order-row'>
+                        <span>Metode Pembayaran</span>
+                        <span>{$paymentMethod}</span>
+                    </div>
+                    <div class='order-row'>
+                        <span>Status</span>
+                        <span class='badge " . ($statusText === 'Lunas' ? 'badge-paid' : 'badge-pending') . "'>{$statusText}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class='items-section'>
+                <div class='watermark'>TERBAYAR</div>
+                <table class='items'>
+                    <thead>
+                        <tr>
+                            <th style='text-align:left;'>PRODUK</th>
+                            <th style='text-align:right;'>QTY</th>
+                            <th style='text-align:right;'>HARGA</th>
+                            <th style='text-align:right;'>SUBTOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {$itemsHtml}
+                    </tbody>
                 </table>
+                <div class='total-box'>
+                    <div class='total-inner'>
+                        <span class='total-label'>Total</span>
+                        <span class='total-amount'>Rp" . number_format($order->total, 0, ',', '.') . "</span>
+                    </div>
+                </div>
             </div>
+
             <div class='footer'>
-                <p>Terima kasih telah berbelanja di Kaspa Space</p>
-                <p style='font-size: 12px; color: #999; margin-top: 5px;'>Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan</p>
+                <p>Terima kasih telah berbelanja di Kaspa Space. Invoice ini dibuat secara otomatis dan sah tanpa tanda tangan.</p>
             </div>
+        </div>
         </body>
         </html>
         ";

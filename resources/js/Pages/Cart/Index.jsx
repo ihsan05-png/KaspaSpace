@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Link, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import Navbar from '@/Components/Navbar';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react';
 
@@ -47,6 +47,7 @@ export default function CartIndex({ cart = [] }) {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
+            <Head title="Keranjang" />
             <Navbar />
             
             <div className="container mx-auto px-4 py-8">

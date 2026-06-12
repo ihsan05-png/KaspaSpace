@@ -20,14 +20,6 @@ class MidtransController extends Controller
         Config::$isProduction = config('midtrans.is_production');
         Config::$isSanitized = config('midtrans.is_sanitized');
         Config::$is3ds = config('midtrans.is_3ds');
-        
-        // Debug: Log configuration
-        Log::info('Midtrans Config Loaded', [
-            'server_key' => substr(Config::$serverKey, 0, 15) . '***', // Only show first 15 chars for security
-            'is_production' => Config::$isProduction,
-            'is_sanitized' => Config::$isSanitized,
-            'is_3ds' => Config::$is3ds,
-        ]);
     }
 
     /**
@@ -350,6 +342,12 @@ class MidtransController extends Controller
                         // Booking products: booking times were already set during checkout.
                         // Just mark as stock_reduced so availability queries count this booking.
                         $item->update(['stock_reduced' => true]);
+
+                        // Konversi hold menjadi 'converted' — slot resmi dikonfirmasi
+                        \App\Models\BookingHold::where('order_id', $order->id)
+                            ->where('product_id', $item->product_id)
+                            ->where('status', 'active')
+                            ->update(['status' => 'converted']);
 
                         Log::info('Booking confirmed for order item (no global stock change)', [
                             'order_id' => $order->id,

@@ -8,12 +8,12 @@ import {
   TrashIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
-  EllipsisVerticalIcon
+  EllipsisVerticalIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 
 const ProductsIndex = ({ products, categories, filters }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -49,31 +49,17 @@ const ProductsIndex = ({ products, categories, filters }) => {
   };
 
   const handleDelete = (product) => {
-    console.log('Delete clicked for product:', {
-      id: product.id,
-      slug: product.slug,
-      title: product.title,
-      is_active: product.is_active
-    });
-
     if (!product.slug) {
       alert('Produk tidak memiliki slug yang valid.');
-      console.error('Product data:', product);
       return;
     }
 
     if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
-      console.log('Sending delete request to:', route('admin.products.destroy', product.slug));
-      
       router.delete(route('admin.products.destroy', product.slug), {
         preserveScroll: true,
-        onSuccess: () => {
-          console.log('Delete successful');
-        },
-        onError: (errors) => {
-          console.error('Delete failed:', errors);
+        onError: () => {
           alert('Gagal menghapus produk. Silakan coba lagi.');
-        }
+        },
       });
     }
   };
@@ -89,8 +75,7 @@ const ProductsIndex = ({ products, categories, filters }) => {
           setSelectedProducts([]);
           alert(`${selectedProducts.length} produk berhasil dihapus`);
         },
-        onError: (errors) => {
-          console.error('Bulk delete failed:', errors);
+        onError: () => {
           alert('Gagal menghapus produk. Silakan coba lagi.');
         }
       });
@@ -115,326 +100,239 @@ const ProductsIndex = ({ products, categories, filters }) => {
     }).format(price);
   };
 
+  const BLUE = '#005bbf';
+
+  const statCards = [
+    { label: 'Total Produk',  value: products.total,                                icon: EllipsisVerticalIcon, color: '#eff6ff', iconColor: BLUE },
+    { label: 'Produk Aktif',  value: products.data.filter(p => p.is_active).length, icon: EyeIcon,              color: '#f0fdf4', iconColor: '#16a34a' },
+    { label: 'Produk Draft',  value: products.data.filter(p => !p.is_active).length,icon: FunnelIcon,           color: '#fefce8', iconColor: '#d97706' },
+    { label: 'Kategori',      value: categories.length,                              icon: TagIcon,              color: '#fdf4ff', iconColor: '#9333ea' },
+  ];
+
   return (
     <AdminLayout title="Produk">
       <Head title="Produk" />
-      
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Produk</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Kelola produk dan layanan yang tersedia di toko Anda
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', Inter, sans-serif" }}>
+            Produk
+          </h1>
+          <p style={{ fontSize: 14, color: '#6b7280', marginTop: 6 }}>
+            Kelola produk dan layanan yang tersedia di toko Anda
+          </p>
+        </div>
+        <Link
+          href={route('admin.products.create')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '9px 18px', background: BLUE, color: '#fff',
+            borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: 'none',
+          }}
+        >
+          <PlusIcon style={{ width: 16, height: 16 }} />
+          Tambah Produk
+        </Link>
+      </div>
+
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        {statCards.map((s) => (
+          <div key={s.label} style={{
+            background: '#fff', borderRadius: 14, padding: '18px 20px',
+            boxShadow: '0 1px 6px rgba(26,46,90,0.07)',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {s.label}
+              </p>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <s.icon style={{ width: 18, height: 18, color: s.iconColor }} />
+              </div>
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              {s.value}
             </p>
           </div>
-          
-          <Link
-            href={route('admin.products.create')}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 1px 6px rgba(26,46,90,0.07)', marginBottom: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <form onSubmit={handleSearch} style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+            <MagnifyingGlassIcon style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#9ca3af' }} />
+            <input
+              type="text"
+              name="search"
+              defaultValue={filters.search || ''}
+              placeholder="Cari produk..."
+              style={{
+                width: '100%', paddingLeft: 34, paddingRight: 14, paddingTop: 9, paddingBottom: 9,
+                border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </form>
+          <select
+            value={filters.category_id || ''}
+            onChange={(e) => handleFilterChange('category_id', e.target.value)}
+            style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Tambah Produk
-          </Link>
+            <option value="">Semua Kategori</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+          <select
+            value={filters.status !== undefined ? filters.status : ''}
+            onChange={(e) => handleFilterChange('status', e.target.value === '' ? null : e.target.value === 'true')}
+            style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">Semua Status</option>
+            <option value="true">Aktif</option>
+            <option value="false">Tidak Aktif</option>
+          </select>
+          {selectedProducts.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+              <span style={{ fontSize: 13, color: '#6b7280' }}>{selectedProducts.length} dipilih</span>
+              <button
+                onClick={handleBulkDelete}
+                style={{ padding: '6px 14px', background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Hapus
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                {/* Search */}
-                <form onSubmit={handleSearch} className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    name="search"
-                    defaultValue={filters.search || ''}
-                    placeholder="Cari produk..."
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  />
-                </form>
-
-                {/* Category Filter */}
-                <select
-                  value={filters.category_id || ''}
-                  onChange={(e) => handleFilterChange('category_id', e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">Semua Kategori</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Status Filter */}
-                <select
-                  value={filters.status !== undefined ? filters.status : ''}
-                  onChange={(e) => handleFilterChange('status', e.target.value === '' ? null : e.target.value === 'true')}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">Semua Status</option>
-                  <option value="true">Aktif</option>
-                  <option value="false">Tidak Aktif</option>
-                </select>
-              </div>
-
-              {/* Bulk Actions */}
-              {selectedProducts.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">
-                    {selectedProducts.length} produk dipilih
-                  </span>
-                  <button
-                    onClick={handleBulkDelete}
-                    className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-                  >
-                    Hapus
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Products Grid */}
+        {products.data.length === 0 ? (
+          <div style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+            Tidak ada produk.{' '}
+            <Link href={route('admin.products.create')} style={{ color: BLUE, fontWeight: 600, textDecoration: 'none' }}>
+              Tambah produk pertama
+            </Link>
           </div>
-
-          {/* Products Table/Grid */}
-          <div className="overflow-hidden">
-            {products.data.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-lg mb-4">Tidak ada produk</div>
-                <Link
-                  href={route('admin.products.create')}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
-                >
-                  <PlusIcon className="h-5 w-5 mr-2" />
-                  Tambah Produk Pertama
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
-                {products.data.map((product) => (
-                  <div key={product.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    {/* Product Image */}
-                    <div className="relative aspect-video bg-gray-100">
-                      {product.images && product.images.length > 0 ? (
-                        <img
-                          src={`/storage/${product.images[0]}`}
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <span className="text-sm">No Image</span>
-                        </div>
-                      )}
-                      
-                      {/* Selection Checkbox */}
-                      <div className="absolute top-2 left-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.includes(product.id)}
-                          onChange={() => toggleProductSelection(product.id)}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                        />
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="absolute top-2 right-2">
-                        <button
-                          onClick={() => updateProductStatus(product.slug, !product.is_active)}
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            product.is_active 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {product.is_active ? 'Aktif' : 'Tidak Aktif'}
-                        </button>
-                      </div>
-
-                      {/* Promo Label */}
-                      {product.promo_label && (
-                        <div className="absolute bottom-2 left-2">
-                          <span className="px-2 py-1 bg-indigo-600 text-white text-xs font-medium rounded">
-                            {product.promo_label}
-                          </span>
-                        </div>
-                      )}
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, padding: 20 }}>
+            {products.data.map((product) => (
+              <div key={product.id} style={{
+                background: '#fff', border: '1px solid #f0f2f8', borderRadius: 12, overflow: 'hidden',
+                boxShadow: '0 1px 4px rgba(26,46,90,0.05)', transition: 'box-shadow 0.15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(26,46,90,0.10)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(26,46,90,0.05)'}
+              >
+                {/* Image */}
+                <div style={{ position: 'relative', aspectRatio: '16/9', background: '#f8faff' }}>
+                  {product.images && product.images.length > 0 ? (
+                    <img src={`/storage/${product.images[0]}`} alt={product.title}
+                      loading="lazy" decoding="async"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>
+                      No Image
                     </div>
-
-                    {/* Product Info */}
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-medium text-gray-900 text-sm line-clamp-2 flex-1">
-                          {product.title}
-                        </h3>
-                        
-                        {/* Action Menu */}
-                        <div className="relative ml-2">
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            <EllipsisVerticalIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {product.subtitle && (
-                        <p className="text-xs text-gray-500 mb-2 line-clamp-1">
-                          {product.subtitle}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {formatPrice(product.min_price)}
-                            {product.max_price !== product.min_price && (
-                              <span className="text-gray-500"> - {formatPrice(product.max_price)}</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {product.category.name}
-                          </p>
-                        </div>
-                        
-                        <div className="text-xs text-gray-500">
-                          {product.variants_count || 0} varian
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Link
-                            href={route('admin.products.show', product.slug)}
-                            className="text-gray-400 hover:text-indigo-600 transition-colors"
-                            title="Lihat Detail"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </Link>
-                          <Link
-                            href={route('admin.products.edit', product.slug)}
-                            className="text-gray-400 hover:text-indigo-600 transition-colors"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(product)}
-                            className="text-gray-400 hover:text-red-600 transition-colors"
-                            title="Hapus"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                        
-                        <div className="text-xs text-gray-400">
-                          {new Date(product.updated_at).toLocaleDateString('id-ID')}
-                        </div>
-                      </div>
+                  )}
+                  <div style={{ position: 'absolute', top: 8, left: 8 }}>
+                    <input type="checkbox" checked={selectedProducts.includes(product.id)}
+                      onChange={() => toggleProductSelection(product.id)} style={{ cursor: 'pointer' }} />
+                  </div>
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <button
+                      onClick={() => updateProductStatus(product.slug, !product.is_active)}
+                      style={{
+                        padding: '3px 10px', fontSize: 11, fontWeight: 700, borderRadius: 20, border: 'none', cursor: 'pointer',
+                        background: product.is_active ? '#dcfce7' : '#fee2e2',
+                        color: product.is_active ? '#166534' : '#b91c1c',
+                      }}
+                    >
+                      {product.is_active ? 'Aktif' : 'Draft'}
+                    </button>
+                  </div>
+                  {product.promo_label && (
+                    <div style={{ position: 'absolute', bottom: 8, left: 8 }}>
+                      <span style={{ padding: '3px 8px', background: BLUE, color: '#fff', fontSize: 11, fontWeight: 600, borderRadius: 6 }}>
+                        {product.promo_label}
+                      </span>
                     </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div style={{ padding: '14px 16px' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {product.title}
+                  </p>
+                  {product.subtitle && (
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {product.subtitle}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: BLUE, margin: 0 }}>
+                        {formatPrice(product.min_price)}
+                        {product.max_price !== product.min_price && (
+                          <span style={{ color: '#9ca3af', fontWeight: 400 }}> – {formatPrice(product.max_price)}</span>
+                        )}
+                      </p>
+                      <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{product.category.name}</p>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{product.variants_count || 0} varian</span>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {products.links && products.links.length > 3 && (
-              <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    Menampilkan {products.from || 0} - {products.to || 0} dari {products.total} produk
-                  </div>
-                  
-                  <div className="flex items-center space-x-1">
-                    {products.links.map((link, index) => (
-                      <button
-                        key={index}
-                        onClick={() => link.url && router.visit(link.url)}
-                        disabled={!link.url}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                          link.active 
-                            ? 'bg-indigo-600 text-white' 
-                            : link.url
-                              ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                              : 'text-gray-300 cursor-not-allowed'
-                        }`}
-                        dangerouslySetInnerHTML={{ __html: link.label }}
-                      />
-                    ))}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f0f2f8', paddingTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <Link href={route('admin.products.show', product.slug)} title="Lihat"
+                        style={{ color: '#9ca3af', textDecoration: 'none', display: 'flex' }}>
+                        <EyeIcon style={{ width: 15, height: 15 }} />
+                      </Link>
+                      <Link href={route('admin.products.edit', product.slug)} title="Edit"
+                        style={{ color: '#9ca3af', textDecoration: 'none', display: 'flex' }}>
+                        <PencilIcon style={{ width: 15, height: 15 }} />
+                      </Link>
+                      <button onClick={() => handleDelete(product)} title="Hapus"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}>
+                        <TrashIcon style={{ width: 15, height: 15 }} />
+                      </button>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#d1d5db' }}>
+                      {new Date(product.updated_at).toLocaleDateString('id-ID')}
+                    </span>
                   </div>
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">{products.total}</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Produk</p>
-                <p className="text-lg font-semibold text-gray-900">{products.total}</p>
-              </div>
+        {/* Pagination */}
+        {products.links && products.links.length > 3 && (
+          <div style={{ padding: '12px 20px', borderTop: '1px solid #f0f2f8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: '#6b7280' }}>
+              Menampilkan {products.from || 0}–{products.to || 0} dari {products.total} produk
+            </span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {products.links.map((link, index) => (
+                <button
+                  key={index}
+                  onClick={() => link.url && router.visit(link.url)}
+                  disabled={!link.url}
+                  style={{
+                    padding: '5px 10px', fontSize: 12, borderRadius: 8, border: 'none', cursor: link.url ? 'pointer' : 'not-allowed',
+                    background: link.active ? BLUE : '#f3f4f6',
+                    color: link.active ? '#fff' : link.url ? '#374151' : '#d1d5db',
+                    fontWeight: link.active ? 700 : 400,
+                  }}
+                  dangerouslySetInnerHTML={{ __html: link.label }}
+                />
+              ))}
             </div>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {products.data.filter(p => p.is_active).length}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Produk Aktif</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {products.data.filter(p => p.is_active).length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {products.data.filter(p => !p.is_active).length}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Produk Draft</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {products.data.filter(p => !p.is_active).length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">{categories.length}</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Kategori</p>
-                <p className="text-lg font-semibold text-gray-900">{categories.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
   );
