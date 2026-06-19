@@ -24,8 +24,12 @@ return new class extends Migration
             $table->integer('usage_count')->default(0); // Jumlah yang sudah digunakan
             $table->timestamp('start_date')->nullable(); // Tanggal mulai
             $table->timestamp('end_date')->nullable(); // Tanggal berakhir
-            $table->boolean('is_active')->default(true); // Status aktif
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
+            $table->index('is_active');
+            $table->index('start_date');
+            $table->index('end_date');
+            $table->index(['is_active', 'start_date', 'end_date']);
         });
     }
 

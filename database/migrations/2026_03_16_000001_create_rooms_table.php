@@ -12,7 +12,11 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->integer('capacity')->default(1); // jumlah meja/kursi
+            $table->integer('capacity')->default(1);
+            $table->integer('unit_count')->default(1);
+            $table->json('unit_names')->nullable();
+            $table->json('unit_capacities')->nullable();
+            $table->json('unit_product_ids')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->decimal('price', 12, 2);
             $table->decimal('compare_price', 12, 2)->nullable(); // Original price for discount display
             $table->integer('stock_quantity')->default(0);
+            $table->decimal('duration_hours', 8, 2)->nullable();
             $table->boolean('manage_stock')->default(false);
             $table->json('attributes')->nullable(); // Size, Color, Weight, Duration, etc.
             $table->string('image')->nullable(); // Specific image for this variant

@@ -19,8 +19,9 @@ return new class extends Migration
             $table->boolean('is_approved')->default(true);
             $table->timestamps();
 
-            // Satu user hanya bisa review satu produk satu kali
             $table->unique(['user_id', 'product_id']);
+            $table->index('is_approved');
+            $table->index(['product_id', 'is_approved']);
         });
     }
 

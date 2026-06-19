@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->string('slug')->unique();
+            $table->enum('type', ['news', 'blogs'])->default('news');
             $table->text('excerpt')->nullable();
             $table->longText('content');
             $table->string('image')->nullable();
