@@ -92,6 +92,9 @@ function StatusStamp({ text, color }) {
 
 export default function Invoice({ order, storeName = 'Kaspa Space', storeAddress = 'Jakarta Selatan' }) {
     const statusCfg = getStatusConfig(order);
+    const dpp = order.total - order.tax;
+    const ppnRate = (order.tax > 0 && dpp > 0) ? Math.round((order.tax / dpp) * 100) : 0;
+    const hasPpn = order.tax > 0;
 
     return (
         <div style={{
@@ -314,17 +317,21 @@ export default function Invoice({ order, storeName = 'Kaspa Space', storeAddress
                                 </div>
                             )}
 
-                            {/* DPP */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f0f2f8' }}>
-                                <span style={{ fontSize: 13, color: '#6b7280' }}>DPP</span>
-                                <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{fmtRp(order.total - order.tax)}</span>
-                            </div>
+                            {/* DPP — hanya tampil jika ada PPN */}
+                            {hasPpn && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f0f2f8' }}>
+                                    <span style={{ fontSize: 13, color: '#6b7280' }}>DPP</span>
+                                    <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{fmtRp(dpp)}</span>
+                                </div>
+                            )}
 
-                            {/* PPN 11% */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e5e7eb' }}>
-                                <span style={{ fontSize: 13, color: '#6b7280' }}>PPN 11%</span>
-                                <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{fmtRp(order.tax)}</span>
-                            </div>
+                            {/* PPN — hanya tampil jika ada PPN */}
+                            {hasPpn && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e5e7eb' }}>
+                                    <span style={{ fontSize: 13, color: '#6b7280' }}>PPN {ppnRate}%</span>
+                                    <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{fmtRp(order.tax)}</span>
+                                </div>
+                            )}
 
                             {/* Total */}
                             <div style={{
@@ -337,7 +344,7 @@ export default function Invoice({ order, storeName = 'Kaspa Space', storeAddress
                                     fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.75)',
                                     letterSpacing: '0.06em', textTransform: 'uppercase',
                                 }}>
-                                    Total (incl. PPN)
+                                    {hasPpn ? `Total (incl. PPN ${ppnRate}%)` : 'Total'}
                                 </span>
                                 <span style={{
                                     fontSize: 20, fontWeight: 800, color: '#fff',

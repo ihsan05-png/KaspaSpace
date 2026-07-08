@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     CheckCircle, Home, CreditCard, XCircle,
-    Clock, AlertTriangle, QrCode, Copy, Check
+    Clock, AlertTriangle, QrCode, Copy, Check, Upload
 } from 'lucide-react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
@@ -26,7 +26,43 @@ export default function Payment({ order, paymentSettings = null }) {
     const [showCancelModal, setShowCancelModal]   = useState(false);
     const [copied, setCopied]                     = useState(false);
 
+    const proofInputRef                           = useRef(null);
+    const [proofFile, setProofFile]               = useState(null);
+    const [proofPreview, setProofPreview]         = useState(null);
+    const [isUploading, setIsUploading]           = useState(false);
+    const [uploadError, setUploadError]           = useState(null);
+
     const isPaymentSuccessful = (s) => ['paid', 'verified'].includes(s);
+
+    const handleProofChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setProofFile(file);
+        setUploadError(null);
+        const reader = new FileReader();
+        reader.onloadend = () => setProofPreview(reader.result);
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemoveProof = () => {
+        setProofFile(null);
+        setProofPreview(null);
+        setUploadError(null);
+        if (proofInputRef.current) proofInputRef.current.value = '';
+    };
+
+    const handleUploadProof = () => {
+        if (!proofFile || isUploading) return;
+        setIsUploading(true);
+        setUploadError(null);
+        router.post(`/orders/${order.id}/upload-payment`, { payment_proof: proofFile }, {
+            forceFormData: true,
+            onError: (errors) => {
+                setUploadError(errors.payment_proof || errors.error || 'Gagal mengupload bukti pembayaran. Coba lagi.');
+            },
+            onFinish: () => setIsUploading(false),
+        });
+    };
 
     const handleCopyAccountNumber = () => {
         if (paymentSettings?.account_number) {
@@ -373,6 +409,81 @@ export default function Payment({ order, paymentSettings = null }) {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Upload Bukti Pembayaran */}
+                        {(order.payment_method === 'qris' || order.payment_method === 'bank_transfer') && isPending && !isExpired && (
+                            <div className="rounded-2xl p-6"
+                                style={{ background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+                                <h2 className="font-semibold mb-1" style={{ fontSize: '1rem', color: '#374151' }}>
+                                    Upload Bukti Pembayaran
+                                </h2>
+                                <p className="text-xs mb-4" style={{ color: '#9aa0b4' }}>
+                                    Upload foto/screenshot bukti transfer atau pembayaran QRIS Anda
+                                </p>
+
+                                {paymentStatus === 'rejected' && order.payment_proof && (
+                                    <div className="rounded-xl p-3 mb-4 flex items-start gap-2"
+                                        style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                                        <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs" style={{ color: '#991b1b' }}>
+                                            Bukti pembayaran Anda ditolak. Silakan upload ulang.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {uploadError && (
+                                    <div className="rounded-xl p-3 mb-4 flex items-start gap-2"
+                                        style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs" style={{ color: '#991b1b' }}>{uploadError}</p>
+                                    </div>
+                                )}
+
+                                <input
+                                    type="file"
+                                    accept="image/jpeg,image/jpg,image/png"
+                                    className="hidden"
+                                    ref={proofInputRef}
+                                    onChange={handleProofChange}
+                                />
+
+                                {!proofPreview ? (
+                                    <button
+                                        onClick={() => proofInputRef.current?.click()}
+                                        className="w-full py-8 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2"
+                                        style={{ borderColor: '#c1c6d6', background: '#f9fafb' }}>
+                                        <Upload className="w-8 h-8" style={{ color: '#9aa0b4' }} />
+                                        <p className="text-sm font-medium" style={{ color: '#414754' }}>
+                                            Klik untuk memilih gambar
+                                        </p>
+                                        <p className="text-xs" style={{ color: '#9aa0b4' }}>JPG, JPEG, PNG · Maks 2MB</p>
+                                    </button>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="rounded-xl overflow-hidden relative"
+                                            style={{ background: '#f3f4f5' }}>
+                                            <img src={proofPreview} alt="Preview bukti pembayaran"
+                                                className="w-full max-h-64 object-contain" />
+                                            <button
+                                                onClick={handleRemoveProof}
+                                                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
+                                                style={{ background: 'rgba(0,0,0,0.5)' }}>
+                                                <XCircle className="w-4 h-4 text-white" />
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={handleUploadProof}
+                                            disabled={isUploading}
+                                            className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 disabled:opacity-60"
+                                            style={{ background: '#005bbf', boxShadow: '0 4px 14px rgba(0,91,191,0.3)' }}>
+                                            {isUploading
+                                                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Mengupload...</>
+                                                : <><Upload className="w-4 h-4" />Kirim Bukti Pembayaran</>}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

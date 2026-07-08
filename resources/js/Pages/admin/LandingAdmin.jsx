@@ -202,29 +202,6 @@ const LandingAdmin = ({ stats: statsData, recentOrders = [] }) => {
             </div>
           </div>
 
-          {/* Promo card */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1a2e5a 0%, #005bbf 100%)',
-            borderRadius: 14, padding: '20px',
-            boxShadow: '0 4px 20px rgba(0,91,191,0.3)',
-          }}>
-            <div style={{ fontSize: 24, marginBottom: 8 }}>🚀</div>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: '0 0 6px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Tingkatkan Bisnis Workspace Anda
-            </h3>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', margin: '0 0 14px', lineHeight: 1.5 }}>
-              Aktifkan modul statistik premium untuk melihat tren okupansi gedung secara real-time.
-            </p>
-            <Link href="/admin/statistics" style={{
-              display: 'inline-block', padding: '7px 16px',
-              background: 'rgba(255,255,255,0.15)', color: '#fff',
-              borderRadius: 8, fontSize: 12, fontWeight: 700,
-              textDecoration: 'none', border: '1px solid rgba(255,255,255,0.25)',
-            }}>
-              Pelajari Lebih Lanjut
-            </Link>
-          </div>
-
         </div>
       </div>
     </AdminLayout>

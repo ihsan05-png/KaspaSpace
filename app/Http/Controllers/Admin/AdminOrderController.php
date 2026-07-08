@@ -233,7 +233,7 @@ class AdminOrderController extends Controller
         ]);
 
         // Jika verified, kurangi stok
-        if ($validated['status'] === 'verified' && $order->payment_status !== 'paid' && $order->payment_status !== 'verified') {
+        if ($validated['status'] === 'verified' && $order->payment_status !== 'verified') {
             DB::transaction(function () use ($order) {
                 $order->load('items.productVariant', 'items.product');
 
@@ -398,6 +398,21 @@ class AdminOrderController extends Controller
 
         $phoneHtml = $order->customer_phone ? "<p style='margin: 5px 0;'><strong>Telepon:</strong> {$order->customer_phone}</p>" : "";
 
+        $dpp = $order->total - $order->tax;
+        $ppnRate = ($order->tax > 0 && $dpp > 0) ? (int) round(($order->tax / $dpp) * 100) : 0;
+        $hasPpn = $order->tax > 0;
+
+        $breakdownHtml = "<tr><td style='padding: 6px 12px; color: #6b7280;'>Subtotal</td><td style='padding: 6px 12px; text-align: right;'>Rp" . number_format($order->subtotal, 0, ',', '.') . "</td></tr>";
+        if ($order->discount_amount > 0) {
+            $discLabel = $order->discount_code ? "Diskon ({$order->discount_code})" : "Diskon";
+            $breakdownHtml .= "<tr><td style='padding: 6px 12px; color: #6b7280;'>{$discLabel}</td><td style='padding: 6px 12px; text-align: right; color: #dc2626;'>-Rp" . number_format($order->discount_amount, 0, ',', '.') . "</td></tr>";
+        }
+        if ($hasPpn) {
+            $breakdownHtml .= "<tr><td style='padding: 6px 12px; color: #6b7280;'>DPP</td><td style='padding: 6px 12px; text-align: right;'>Rp" . number_format($dpp, 0, ',', '.') . "</td></tr>";
+            $breakdownHtml .= "<tr><td style='padding: 6px 12px; color: #6b7280;'>PPN {$ppnRate}%</td><td style='padding: 6px 12px; text-align: right;'>Rp" . number_format($order->tax, 0, ',', '.') . "</td></tr>";
+        }
+        $totalLabel = $hasPpn ? "Total (incl. PPN {$ppnRate}%)" : "Total";
+
         return "
         <!DOCTYPE html>
         <html>
@@ -459,12 +474,11 @@ class AdminOrderController extends Controller
             </table>
 
             <div class='total-section'>
-                <table style='margin-left: auto;'>
-                    <tr>
-                        <td style='border-top: 2px solid #3b82f6; padding-top: 10px;'>
-                            <span style='font-size: 18px; font-weight: bold;'>TOTAL: </span>
-                            <span style='font-size: 20px; font-weight: bold; color: #3b82f6;'>Rp" . number_format($order->total, 0, ',', '.') . "</span>
-                        </td>
+                <table style='margin-left: auto; border-collapse: collapse; min-width: 280px;'>
+                    {$breakdownHtml}
+                    <tr style='border-top: 2px solid #3b82f6;'>
+                        <td style='padding: 10px 12px; font-size: 15px; font-weight: bold;'>{$totalLabel}</td>
+                        <td style='padding: 10px 12px; text-align: right; font-size: 18px; font-weight: bold; color: #3b82f6;'>Rp" . number_format($order->total, 0, ',', '.') . "</td>
                     </tr>
                 </table>
             </div>

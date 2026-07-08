@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         // Panggil seeder lain
         $this->call([
+            RolePermissionSeeder::class,
             UserSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,

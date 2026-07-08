@@ -12,8 +12,6 @@ import {
   ChevronRightIcon,
   Bars3Icon,
   XMarkIcon,
-  ArrowRightOnRectangleIcon,
-  UserCircleIcon,
   NewspaperIcon,
   UsersIcon,
   DocumentTextIcon,
@@ -23,7 +21,7 @@ import {
   BellIcon,
   QuestionMarkCircleIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 
 const BLUE = '#005bbf';
@@ -50,7 +48,7 @@ export default function AdminLayout({ children }) {
   const mainNav = [
     { name: 'Overview',     href: '/admin',               icon: HomeIcon,                  current: url === '/admin' },
     { name: 'Pesanan',      href: '/admin/orders',         icon: ClipboardDocumentListIcon, current: url.startsWith('/admin/orders') && !url.includes('paymentsettings') },
-    { name: 'Reservasi',    href: '/admin/reservations',   icon: ClipboardDocumentListIcon, current: url.startsWith('/admin/reservations') },
+
     { name: 'Monitoring',   href: '/admin/monitoring',     icon: ComputerDesktopIcon,       current: url.startsWith('/admin/monitoring') },
     { name: 'Jadwal',       href: '/admin/schedule',       icon: ChartBarIcon,              current: url.startsWith('/admin/schedule') },
     { name: 'Ruangan',      href: '/admin/rooms',          icon: BuildingOfficeIcon,        current: url.startsWith('/admin/rooms') },
@@ -189,16 +187,6 @@ export default function AdminLayout({ children }) {
 
       {/* Bottom */}
       <div style={{ padding: '12px', borderTop: '1px solid #f0f2f8' }}>
-        <Link href="/" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          padding: '10px', borderRadius: 10, background: BLUE,
-          color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-          boxShadow: '0 4px 12px rgba(0,91,191,0.25)',
-        }}>
-          <PlusIcon style={{ width: 16, height: 16 }} />
-          Create New Space
-        </Link>
-
         <button onClick={handleLogout} style={{
           width: '100%', marginTop: 8, display: 'flex', alignItems: 'center', gap: 8,
           padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
